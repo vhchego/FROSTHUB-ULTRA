@@ -1,7 +1,8 @@
 --[[
-    ❄️ FROSTHUB ULTRA ❄️
-    ABA LOCK ON (Tecla E) + AIMBOT + ESP + FARM + SPEED + FLY + VISUAL
-    FOV CORRIGIDO – APARECE INDEPENDENTE DO MÓDULO ATIVO
+    ❄️ FROSTHUB ULTRA (XENO - SEM DRAWING) ❄️
+    - Verifica disponibilidade do Drawing
+    - Desativa FOV/Radar se necessário
+    - Interface sempre funcional
 ]]
 
 local Players = game:GetService("Players")
@@ -14,27 +15,22 @@ local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local Camera = workspace.CurrentCamera
 
+-- Verifica se a biblioteca Drawing existe
+local hasDrawing = pcall(function() return Drawing.new end)
+
 -- ====================== CONFIGURAÇÕES ======================
 local Config = {
     TeamCheck = true,
     Aimbot = {
         Enabled = false,
-        AimKey = Enum.UserInputType.MouseButton2,   -- botão direito ativa o Aimbot
-        AimlockMode = "Hold",                        -- apenas Hold, sem toggle por tecla
-        FOV = 150,
-        Smoothness = 0.08,
+        AimKey = Enum.UserInputType.MouseButton2,
+        AimlockMode = "Hold",
+        FOV = 200,
+        Smoothness = 0,
         AimPart = "Head",
-        ShowFOV = true,
-        FOVColor = Color3.fromRGB(0, 255, 0)        -- verde
-    },
-    LockOn = {
-        Enabled = false,
-        ToggleKey = Enum.KeyCode.E,                  -- tecla E ativa/desativa o Lock On
-        FOV = 180,
-        Smoothness = 0.04,
-        AimPart = "Head",
-        ShowFOV = true,
-        FOVColor = Color3.fromRGB(255, 50, 50)      -- vermelho
+        ShowFOV = hasDrawing,       -- só mostra se Drawing existir
+        FOVColor = Color3.fromRGB(0, 255, 0),
+        VisibleCheck = false
     },
     Hitbox = { Enabled = false, ExpandFactor = 1.5 },
     ESP = {
@@ -45,7 +41,7 @@ local Config = {
         ShowWeapon = false,
         TextColor = Color3.fromRGB(255, 255, 255),
         Font = Enum.Font.GothamBold,
-        TextSize = 13,
+        TextSize = 11,
         HighlightEnabled = true,
         HighlightColor = Color3.fromRGB(255, 0, 0),
         HighlightTransparency = 0.5
@@ -72,10 +68,20 @@ local Config = {
         Speed = 50, SpeedStep = 10, MinSpeed = 10, MaxSpeed = 500,
         Sensitivity = 0.5
     },
+    Radar = {
+        Enabled = false,
+        MaxDistance = 250,
+        FrostFilter = false,
+        MinZoom = 80,
+        MaxZoom = 600,
+        ZoomStep = 25,
+        ToggleKey = Enum.KeyCode.F10
+    },
     UI = {
         KeyToggleMenu = Enum.KeyCode.F1,
         KeyToggleAimbot = Enum.KeyCode.F2,
         KeyToggleESP = Enum.KeyCode.F3,
+        KeyToggleRadar = Enum.KeyCode.F10,
         MenuEnabled = true,
         AccentColor = Color3.fromRGB(0, 180, 255),
         AccentLight = Color3.fromRGB(100, 220, 255),
@@ -85,18 +91,28 @@ local Config = {
         TextColor = Color3.fromRGB(220, 240, 255),
         SubTextColor = Color3.fromRGB(140, 180, 210),
         WindowWidth = 380,
-        WindowHeight = 580,
+        WindowHeight = 520,
         MinWidth = 300,
-        MinHeight = 480
+        MinHeight = 440
     }
+}
+
+local KeyBinds = {
+    Menu = { Config.UI, "KeyToggleMenu" },
+    AimbotToggle = { Config.UI, "KeyToggleAimbot" },
+    ESPToggle = { Config.UI, "KeyToggleESP" },
+    RadarToggle = { Config.UI, "KeyToggleRadar" },
+    FreeCam = { Config.FreeCam, "ToggleKey" },
+    WalkSpeed = { Config.Speed, "WalkToggleKey" },
+    Jump = { Config.Speed, "JumpToggleKey" },
+    Fly = { Config.Fly, "FlyToggleKey" },
+    NoClip = { Config.Fly, "NoClipToggleKey" },
+    FullBright = { Config.Visual, "FullBrightKey" },
 }
 
 -- ====================== ESTADOS ======================
 local holdingAimKey = false
 local aimbotConnection = nil
-local lockonConnection = nil
-local lockonTarget = nil
-local lockonTargetPlayer = nil
 local espContainer = nil
 local espLoopConn = nil
 local espData = {}
@@ -104,9 +120,8 @@ local autoFarmConnection = nil
 local hitboxConnection = nil
 local menuScreenGui = nil
 local mainFrame = nil
-local inputBeganConn, inputEndedConn, inputChangedConn = nil, nil, nil
 local fovCircleAimbot = nil
-local fovCircleLockOn = nil
+local fovUpdateConn = nil
 
 local freeCamRenderConn = nil
 local freeCamInputChanged = nil
@@ -132,6 +147,9 @@ local resizeStartSize = nil
 local expandedParts = {}
 local ToggleUpdates = {}
 
+local rebindingKey = nil
+local rebindButton = nil
+
 -- ====================== FUNÇÕES BÁSICAS ======================
 local function IsEnemy(player)
     if player == LocalPlayer then return false end
@@ -143,6 +161,28 @@ local function IsEnemy(player)
         return false
     end
     return true
+end
+
+-- ====================== VERIFICAÇÃO DE PAREDE ======================
+local function IsTargetVisible(targetPart)
+    if not targetPart then return false end
+    local cam = Camera
+    if not cam then return false end
+    local startPos = cam.CFrame.Position
+    local targetPos = targetPart.Position
+    local direction = (targetPos - startPos).Unit
+    local distance = (targetPos - startPos).Magnitude
+
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Blacklist
+    params.FilterDescendantsInstances = {LocalPlayer.Character}
+    params.IgnoreWater = true
+
+    local result = Workspace:Raycast(startPos, direction * distance, params)
+    if not result then return true end
+    local hitChar = result.Instance:FindFirstAncestorOfClass("Model")
+    if hitChar == targetPart.Parent then return true end
+    return false
 end
 
 -- ====================== HITBOX EXPANDER ======================
@@ -164,183 +204,100 @@ local function RestoreHitbox(player)
     table.clear(expandedParts)
 end
 
--- ====================== AIMBOT ======================
-local currentAimbotTarget = nil
-local currentAimbotPlayer = nil
-
-local function IsAimbotTargetValid()
-    if not currentAimbotTarget or not currentAimbotTarget.Parent then return false end
-    local char = currentAimbotTarget.Parent
-    local hum = char:FindFirstChild("Humanoid")
-    return hum and hum.Health > 0
-end
-
+-- ====================== AIMBOT (XFROST) ======================
 local function GetBestAimbotTarget()
     local cam = Camera
     if not cam then return nil end
-    local camPos = cam.CFrame.Position
-    local lookVec = cam.CFrame.LookVector
-    local best, bestScore = nil, math.huge
+    local viewport = cam.ViewportSize
+    local center = Vector2.new(viewport.X / 2, viewport.Y / 2)
+    local fovRadius = Config.Aimbot.FOV
+    local bestPart = nil
+    local bestDist = math.huge
 
     for _, p in pairs(Players:GetPlayers()) do
-        if IsEnemy(p) and p.Character then
-            local part = p.Character:FindFirstChild(Config.Aimbot.AimPart)
-            if part then
-                local direction = (part.Position - camPos).Unit
-                local angle = math.deg(math.acos(math.clamp(lookVec:Dot(direction), -1, 1)))
-                if angle <= Config.Aimbot.FOV then
-                    local score = angle
-                    if score < bestScore then
-                        bestScore = score
-                        best = { part = part, player = p }
-                    end
-                end
-            end
+        if not IsEnemy(p) then continue end
+        local char = p.Character
+        if not char then continue end
+        local part = char:FindFirstChild(Config.Aimbot.AimPart)
+        if not part then continue end
+
+        if Config.Aimbot.VisibleCheck and not IsTargetVisible(part) then continue end
+
+        local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
+        if not onScreen then continue end
+
+        local distToCenter = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+        if distToCenter <= fovRadius and distToCenter < bestDist then
+            bestDist = distToCenter
+            bestPart = part
         end
     end
-    return best
+    return bestPart
 end
 
-local function AimbotLoop(deltaTime)
-    if Config.FreeCam.Enabled then return end
-    if not Config.Aimbot.Enabled then return end
-    local shouldAim = holdingAimKey  -- apenas Hold (botão direito)
-    if not shouldAim then
-        currentAimbotTarget, currentAimbotPlayer = nil, nil
+-- ====================== MOVIMENTAÇÃO DO MOUSE ======================
+local function moveMouseToTarget(targetPart)
+    local cam = Camera
+    if not cam then return end
+    local screenPos, onScreen = cam:WorldToViewportPoint(targetPart.Position)
+    if not onScreen then return end
+
+    local center = Vector2.new(cam.ViewportSize.X / 2, cam.ViewportSize.Y / 2)
+    local delta = Vector2.new(screenPos.X, screenPos.Y) - center
+    local smoothFactor = Config.Aimbot.Smoothness or 0
+
+    local dist = delta.Magnitude
+    if dist < 2 then return end
+
+    local acceleration = 1 + (dist / 300)
+    local adjustedSmooth = smoothFactor * acceleration
+    if adjustedSmooth > 1 then adjustedSmooth = 1 end
+
+    if smoothFactor == 0 or adjustedSmooth < 0.01 then
+        if mousemoverel then
+            mousemoverel(delta.X, delta.Y)
+        elseif syn and syn.input then
+            syn.input.mousemove(delta.X, delta.Y)
+        end
         return
     end
 
-    if currentAimbotTarget and not IsAimbotTargetValid() then
-        currentAimbotTarget, currentAimbotPlayer = nil, nil
-    end
-
-    if not currentAimbotTarget then
-        local best = GetBestAimbotTarget()
-        if best then currentAimbotTarget, currentAimbotPlayer = best.part, best.player end
-    end
-
-    if not currentAimbotTarget then return end
-
-    local targetPos = currentAimbotTarget.Position
-    local cam = Camera
-    local camPos = cam.CFrame.Position
-    local desiredDir = (targetPos - camPos).Unit
-
-    local smooth = Config.Aimbot.Smoothness
-    if smooth <= 0 or deltaTime <= 0 then
-        cam.CFrame = CFrame.new(camPos, camPos + desiredDir)
-    else
-        local currentDir = cam.CFrame.LookVector
-        local t = math.clamp(deltaTime / smooth, 0, 1)
-        local newDir = currentDir:Lerp(desiredDir, t).Unit
-        cam.CFrame = CFrame.new(camPos, camPos + newDir)
+    local moveX = delta.X * adjustedSmooth
+    local moveY = delta.Y * adjustedSmooth
+    if mousemoverel then
+        mousemoverel(moveX, moveY)
+    elseif syn and syn.input then
+        syn.input.mousemove(moveX, moveY)
     end
 end
 
--- ====================== LOCK ON ======================
-local function IsLockOnTargetValid()
-    if not lockonTarget or not lockonTarget.Parent then return false end
-    local char = lockonTarget.Parent
-    local hum = char:FindFirstChild("Humanoid")
-    if not hum or hum.Health <= 0 then return false end
-    local cam = Camera
-    if not cam then return false end
-    local camPos = cam.CFrame.Position
-    local lookVec = cam.CFrame.LookVector
-    local direction = (lockonTarget.Position - camPos).Unit
-    local angle = math.deg(math.acos(math.clamp(lookVec:Dot(direction), -1, 1)))
-    return angle <= Config.LockOn.FOV
+local function AimbotLoop()
+    if Config.FreeCam.Enabled then return end
+    if not Config.Aimbot.Enabled then return end
+    if not holdingAimKey then return end
+    local targetPart = GetBestAimbotTarget()
+    if targetPart then moveMouseToTarget(targetPart) end
 end
 
-local function GetBestLockOnTarget()
-    local cam = Camera
-    if not cam then return nil end
-    local camPos = cam.CFrame.Position
-    local lookVec = cam.CFrame.LookVector
-    local best, bestAngle = nil, Config.LockOn.FOV + 1
-
-    for _, p in pairs(Players:GetPlayers()) do
-        if IsEnemy(p) and p.Character then
-            local part = p.Character:FindFirstChild(Config.LockOn.AimPart)
-            if part then
-                local direction = (part.Position - camPos).Unit
-                local angle = math.deg(math.acos(math.clamp(lookVec:Dot(direction), -1, 1)))
-                if angle < bestAngle then
-                    bestAngle = angle
-                    best = { part = part, player = p }
-                end
-            end
+-- ====================== FOV CIRCLES (PROTEGIDO) ======================
+local function UpdateFOVCircles()
+    if not hasDrawing then return end
+    if Config.Aimbot.Enabled and Config.Aimbot.ShowFOV and not Config.FreeCam.Enabled then
+        if not fovCircleAimbot then
+            pcall(function()
+                fovCircleAimbot = Drawing.new("Circle")
+            end)
         end
-    end
-    return best
-end
-
-local function LockOnLoop(deltaTime)
-    if Config.FreeCam.Enabled then return end
-    if not Config.LockOn.Enabled then return end
-
-    if lockonTarget and not IsLockOnTargetValid() then
-        lockonTarget, lockonTargetPlayer = nil, nil
-    end
-
-    if not lockonTarget then
-        local best = GetBestLockOnTarget()
-        if best then lockonTarget, lockonTargetPlayer = best.part, best.player end
-    end
-
-    if not lockonTarget then return end
-
-    local targetPos = lockonTarget.Position
-    local cam = Camera
-    local camPos = cam.CFrame.Position
-    local desiredDir = (targetPos - camPos).Unit
-
-    local smooth = Config.LockOn.Smoothness
-    if smooth <= 0 or deltaTime <= 0 then
-        cam.CFrame = CFrame.new(camPos, camPos + desiredDir)
+        if fovCircleAimbot then
+            fovCircleAimbot.Color = Config.Aimbot.FOVColor
+            fovCircleAimbot.Thickness = 2
+            fovCircleAimbot.Radius = Config.Aimbot.FOV
+            fovCircleAimbot.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+            fovCircleAimbot.Visible = true
+        end
     else
-        local currentDir = cam.CFrame.LookVector
-        local t = math.clamp(deltaTime / smooth, 0, 1)
-        local newDir = currentDir:Lerp(desiredDir, t).Unit
-        cam.CFrame = CFrame.new(camPos, camPos + newDir)
+        if fovCircleAimbot then fovCircleAimbot.Visible = false end
     end
-end
-
--- ====================== FOV CIRCLES (CORRIGIDOS) ======================
-local function UpdateAimbotFOVCircle()
-    if fovCircleAimbot then fovCircleAimbot:Destroy(); fovCircleAimbot = nil end
-    -- Agora só verifica o toggle, não exige Aimbot ligado
-    if not Config.Aimbot.ShowFOV then return end
-    if Config.FreeCam.Enabled then return end
-
-    fovCircleAimbot = Instance.new("Frame")
-    fovCircleAimbot.BackgroundTransparency = 1
-    fovCircleAimbot.Size = UDim2.new(0, Config.Aimbot.FOV * 2, 0, Config.Aimbot.FOV * 2)
-    fovCircleAimbot.Position = UDim2.new(0.5, -Config.Aimbot.FOV, 0.5, -Config.Aimbot.FOV)
-    fovCircleAimbot.Parent = CoreGui
-    Instance.new("UICorner", fovCircleAimbot).CornerRadius = UDim.new(1, 0)
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 2
-    stroke.Color = Config.Aimbot.FOVColor
-    stroke.Parent = fovCircleAimbot
-end
-
-local function UpdateLockOnFOVCircle()
-    if fovCircleLockOn then fovCircleLockOn:Destroy(); fovCircleLockOn = nil end
-    -- Agora só verifica o toggle, não exige Lock On ligado
-    if not Config.LockOn.ShowFOV then return end
-    if Config.FreeCam.Enabled then return end
-
-    fovCircleLockOn = Instance.new("Frame")
-    fovCircleLockOn.BackgroundTransparency = 1
-    fovCircleLockOn.Size = UDim2.new(0, Config.LockOn.FOV * 2, 0, Config.LockOn.FOV * 2)
-    fovCircleLockOn.Position = UDim2.new(0.5, -Config.LockOn.FOV, 0.5, -Config.LockOn.FOV)
-    fovCircleLockOn.Parent = CoreGui
-    Instance.new("UICorner", fovCircleLockOn).CornerRadius = UDim.new(1, 0)
-    local stroke = Instance.new("UIStroke")
-    stroke.Thickness = 2
-    stroke.Color = Config.LockOn.FOVColor
-    stroke.Parent = fovCircleLockOn
 end
 
 -- ====================== ESP OTIMIZADO ======================
@@ -355,99 +312,98 @@ end
 local function cleanupPlayerESP(player)
     local data = espData[player]
     if not data then return end
-    if data.billboard then data.billboard:Destroy() end
     if data.highlight then data.highlight:Destroy() end
+    if data.billboard then data.billboard:Destroy() end
     espData[player] = nil
 end
 
 local function espUpdateLoop()
-    for _, player in pairs(Players:GetPlayers()) do
-        if player == LocalPlayer or not IsEnemy(player) then
-            if espData[player] then cleanupPlayerESP(player) end
-            continue
-        end
-
-        local char = player.Character
-        if not char then
-            if espData[player] then
-                if espData[player].billboard then espData[player].billboard.Enabled = false end
-                if espData[player].highlight then espData[player].highlight.Enabled = false end
+    pcall(function()
+        for _, player in pairs(Players:GetPlayers()) do
+            if player == LocalPlayer or not IsEnemy(player) then
+                if espData[player] then cleanupPlayerESP(player) end
+                continue
             end
-            continue
-        end
-
-        local head = char:FindFirstChild("Head")
-        if not head then
-            if espData[player] then
-                if espData[player].billboard then espData[player].billboard.Enabled = false end
-                if espData[player].highlight then espData[player].highlight.Enabled = false end
+            local char = player.Character
+            if not char then
+                if espData[player] then
+                    if espData[player].highlight then espData[player].highlight.Enabled = false end
+                    if espData[player].billboard then espData[player].billboard.Enabled = false end
+                end
+                continue
             end
-            continue
-        end
+            local head = char:FindFirstChild("Head")
+            if not head then
+                if espData[player] then
+                    if espData[player].highlight then espData[player].highlight.Enabled = false end
+                    if espData[player].billboard then espData[player].billboard.Enabled = false end
+                end
+                continue
+            end
+            if not espData[player] then espData[player] = {} end
+            local data = espData[player]
 
-        if not espData[player] then espData[player] = {} end
-        local data = espData[player]
-
-        if Config.ESP.HighlightEnabled then
-            if not data.highlight or not data.highlight.Parent then
-                local hl = Instance.new("Highlight")
-                hl.FillColor = Config.ESP.HighlightColor
-                hl.FillTransparency = Config.ESP.HighlightTransparency
-                hl.OutlineColor = Color3.new(1,1,1)
-                hl.Parent = char
-                data.highlight = hl
+            if Config.ESP.HighlightEnabled then
+                if not data.highlight or not data.highlight.Parent then
+                    local hl = Instance.new("Highlight")
+                    hl.FillColor = Config.ESP.HighlightColor
+                    hl.FillTransparency = Config.ESP.HighlightTransparency
+                    hl.OutlineColor = Color3.new(1,1,1)
+                    hl.Parent = char
+                    data.highlight = hl
+                else
+                    data.highlight.FillColor = Config.ESP.HighlightColor
+                    data.highlight.FillTransparency = Config.ESP.HighlightTransparency
+                    data.highlight.Enabled = true
+                    if data.highlight.Parent ~= char then data.highlight.Parent = char end
+                end
             else
-                data.highlight.FillColor = Config.ESP.HighlightColor
-                data.highlight.FillTransparency = Config.ESP.HighlightTransparency
-                data.highlight.Enabled = true
-                if data.highlight.Parent ~= char then data.highlight.Parent = char end
+                if data.highlight then data.highlight:Destroy(); data.highlight = nil end
             end
-        else
-            if data.highlight then data.highlight:Destroy(); data.highlight = nil end
+
+            if not data.billboard or not data.billboard.Parent then
+                local bill = Instance.new("BillboardGui")
+                bill.Size = UDim2.new(0, 200, 0, 50)
+                bill.AlwaysOnTop = true
+                bill.Parent = head
+                bill.Adornee = head
+                local text = Instance.new("TextLabel")
+                text.Size = UDim2.new(1,0,1,0)
+                text.BackgroundTransparency = 1
+                text.TextColor3 = Config.ESP.TextColor
+                text.TextStrokeTransparency = 0
+                text.TextScaled = true
+                text.Font = Config.ESP.Font
+                text.Parent = bill
+                data.billboard = bill
+                data.billboardText = text
+            else
+                if data.billboard.Adornee ~= head then data.billboard.Adornee = head end
+                data.billboard.Enabled = true
+            end
+
+            if data.billboardText then
+                local hum = char:FindFirstChild("Humanoid")
+                local root = char:FindFirstChild("HumanoidRootPart")
+                local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local display = ""
+                if Config.ESP.ShowName then display = player.Name end
+                if Config.ESP.ShowHealth and hum then
+                    local hp = math.floor((hum.Health / hum.MaxHealth) * 100)
+                    display = display .. (display ~= "" and " | " or "") .. hp .. "%"
+                end
+                if Config.ESP.ShowDistance and root and myRoot then
+                    local dist = (myRoot.Position - root.Position).Magnitude
+                    display = display .. (display ~= "" and " | " or "") .. math.floor(dist) .. "m"
+                end
+                data.billboardText.Text = display
+            end
         end
 
-        if not data.billboard or not data.billboard.Parent then
-            local bill = Instance.new("BillboardGui")
-            bill.Size = UDim2.new(0, 200, 0, 50)
-            bill.AlwaysOnTop = true
-            bill.Parent = head
-            bill.Adornee = head
-            local text = Instance.new("TextLabel")
-            text.Size = UDim2.new(1,0,1,0)
-            text.BackgroundTransparency = 1
-            text.TextColor3 = Config.ESP.TextColor
-            text.TextStrokeTransparency = 0
-            text.TextScaled = true
-            text.Font = Config.ESP.Font
-            text.Parent = bill
-            data.billboard = bill
-            data.billboardText = text
-        else
-            if data.billboard.Adornee ~= head then data.billboard.Adornee = head end
-            data.billboard.Enabled = true
+        for player, _ in pairs(espData) do
+            if not Players:FindFirstChild(player.Name) then cleanupPlayerESP(player) end
         end
-
-        if data.billboardText then
-            local display = ""
-            local hum = char:FindFirstChild("Humanoid")
-            local root = char:FindFirstChild("HumanoidRootPart")
-            local myRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if Config.ESP.ShowName then display = player.Name end
-            if Config.ESP.ShowHealth and hum then
-                local hp = math.floor((hum.Health / hum.MaxHealth) * 100)
-                display = display .. (display ~= "" and " | " or "") .. hp .. "%"
-            end
-            if Config.ESP.ShowDistance and root and myRoot then
-                local dist = (myRoot.Position - root.Position).Magnitude
-                display = display .. (display ~= "" and " | " or "") .. math.floor(dist) .. "m"
-            end
-            data.billboardText.Text = display
-        end
-    end
-
-    for player, _ in pairs(espData) do
-        if not Players:FindFirstChild(player.Name) then cleanupPlayerESP(player) end
-    end
+    end)
 end
 
 local function enableESP()
@@ -460,8 +416,8 @@ end
 local function disableESP()
     if espLoopConn then espLoopConn:Disconnect(); espLoopConn = nil end
     for _, data in pairs(espData) do
-        if data.billboard then data.billboard:Destroy() end
         if data.highlight then data.highlight:Destroy() end
+        if data.billboard then data.billboard:Destroy() end
     end
     espData = {}
     if espContainer then espContainer:Destroy(); espContainer = nil end
@@ -559,7 +515,6 @@ local function EnableFreeCam()
         end
     end)
     if aimbotConnection and Config.Aimbot.Enabled then StopAimbot(); Config.Aimbot.Enabled = true end
-    if lockonConnection and Config.LockOn.Enabled then StopLockOn(); Config.LockOn.Enabled = true end
 end
 local function DisableFreeCam()
     if not Config.FreeCam.Enabled then return end
@@ -569,7 +524,6 @@ local function DisableFreeCam()
     if freeCamInputChanged then freeCamInputChanged:Disconnect(); freeCamInputChanged = nil end
     if freezedRootPart then freezedRootPart.Anchored = false; freezedRootPart = nil end
     if Config.Aimbot.Enabled and not aimbotConnection then StartAimbot() end
-    if Config.LockOn.Enabled and not lockonConnection then StartLockOn() end
 end
 local function ToggleFreeCam()
     if Config.FreeCam.Enabled then DisableFreeCam() else EnableFreeCam() end
@@ -598,7 +552,7 @@ function SetJumpEnabled(state)
     if ToggleUpdates["JumpEnabled"] then ToggleUpdates["JumpEnabled"]() end
 end
 
--- ====================== FLY + NOCLIP ======================
+-- ====================== FLY + NOCLIP (ORIGINAL) ======================
 function StartFly()
     if flyLoop then return end
     local char = LocalPlayer.Character; if not char then return end
@@ -644,31 +598,10 @@ end
 -- ====================== GERENCIAMENTO DE LOOP ======================
 local function StartAimbot()
     if aimbotConnection then aimbotConnection:Disconnect() end
-    local lastTime = tick()
-    aimbotConnection = RunService.RenderStepped:Connect(function()
-        local now = tick(); local dt = now - lastTime; lastTime = now
-        AimbotLoop(dt)
-    end)
-    UpdateAimbotFOVCircle()  -- atualiza o FOV ao ligar
+    aimbotConnection = RunService.RenderStepped:Connect(AimbotLoop)
 end
 local function StopAimbot()
     if aimbotConnection then aimbotConnection:Disconnect(); aimbotConnection = nil end
-    currentAimbotTarget, currentAimbotPlayer = nil, nil
-    UpdateAimbotFOVCircle()  -- remove o FOV ao desligar
-end
-local function StartLockOn()
-    if lockonConnection then lockonConnection:Disconnect() end
-    local lastTime = tick()
-    lockonConnection = RunService.RenderStepped:Connect(function()
-        local now = tick(); local dt = now - lastTime; lastTime = now
-        LockOnLoop(dt)
-    end)
-    UpdateLockOnFOVCircle()  -- atualiza o FOV ao ligar
-end
-local function StopLockOn()
-    if lockonConnection then lockonConnection:Disconnect(); lockonConnection = nil end
-    lockonTarget, lockonTargetPlayer = nil, nil
-    UpdateLockOnFOVCircle()  -- remove o FOV ao desligar
 end
 local function StartESP() Config.ESP.Enabled = true; enableESP() end
 local function StopESP() Config.ESP.Enabled = false; disableESP() end
@@ -691,12 +624,319 @@ local function StopHitbox()
     for _, player in ipairs(Players:GetPlayers()) do RestoreHitbox(player) end
 end
 
--- ====================== INTERFACE COMPLETA ======================
+-- ====================== RADAR TÁTICO (PROTEGIDO) ======================
+local radarActive = false
+local radarConnection = nil
+local radarViewportConn = nil
+local radarObjects = {}
+local playerDots = {}
+local playerLabels = {}
+local zoomLevel = Config.Radar.MaxDistance
+local radarCenterX = 0
+local radarCenterY = 0
+local radarHalfSize = 95
+
+local function SafeRemove(obj)
+    if obj and type(obj) == "table" and obj.Remove then
+        pcall(function() obj:Remove() end)
+    end
+end
+
+local function BuildRadar()
+    if not hasDrawing then return end
+    for _, obj in pairs(radarObjects) do SafeRemove(obj) end
+    radarObjects = {}
+    for _, dot in pairs(playerDots) do SafeRemove(dot) end
+    playerDots = {}
+    for _, lbl in pairs(playerLabels) do SafeRemove(lbl) end
+    playerLabels = {}
+
+    if not Camera then return end
+    local viewport = Camera.ViewportSize
+    local halfSize = radarHalfSize
+    local centerX = viewport.X - 190 - 30 + halfSize
+    local centerY = viewport.Y / 2
+    radarCenterX = centerX
+    radarCenterY = centerY
+
+    local bg = Drawing.new("Quad")
+    bg.PointA = Vector2.new(centerX - halfSize, centerY - halfSize)
+    bg.PointB = Vector2.new(centerX + halfSize, centerY - halfSize)
+    bg.PointC = Vector2.new(centerX + halfSize, centerY + halfSize)
+    bg.PointD = Vector2.new(centerX - halfSize, centerY + halfSize)
+    bg.Thickness = 0
+    bg.Filled = true
+    bg.Color = Color3.fromRGB(6, 10, 20)
+    bg.Transparency = 0.85
+    bg.Visible = true
+    table.insert(radarObjects, bg)
+
+    local borders = {
+        {Vector2.new(centerX - halfSize, centerY - halfSize), Vector2.new(centerX + halfSize, centerY - halfSize)},
+        {Vector2.new(centerX + halfSize, centerY - halfSize), Vector2.new(centerX + halfSize, centerY + halfSize)},
+        {Vector2.new(centerX + halfSize, centerY + halfSize), Vector2.new(centerX - halfSize, centerY + halfSize)},
+        {Vector2.new(centerX - halfSize, centerY + halfSize), Vector2.new(centerX - halfSize, centerY - halfSize)}
+    }
+    for _, pair in ipairs(borders) do
+        local line = Drawing.new("Line")
+        line.From = pair[1]
+        line.To = pair[2]
+        line.Thickness = 2.5
+        line.Color = Color3.fromRGB(0, 200, 255)
+        line.Visible = true
+        table.insert(radarObjects, line)
+    end
+
+    for i = 1, 3 do
+        local frac = i / 4
+        local pos = -halfSize + (190 * frac)
+        local vLine = Drawing.new("Line")
+        vLine.From = Vector2.new(centerX + pos, centerY - halfSize)
+        vLine.To = Vector2.new(centerX + pos, centerY + halfSize)
+        vLine.Thickness = 1
+        vLine.Color = Color3.fromRGB(30, 60, 90)
+        vLine.Transparency = 0.4
+        vLine.Visible = true
+        table.insert(radarObjects, vLine)
+        local hLine = Drawing.new("Line")
+        hLine.From = Vector2.new(centerX - halfSize, centerY + pos)
+        hLine.To = Vector2.new(centerX + halfSize, centerY + pos)
+        hLine.Thickness = 1
+        hLine.Color = Color3.fromRGB(30, 60, 90)
+        hLine.Transparency = 0.4
+        hLine.Visible = true
+        table.insert(radarObjects, hLine)
+    end
+
+    local function compass(text, x, y, color)
+        local txt = Drawing.new("Text")
+        txt.Size = 12; txt.Center = true; txt.Font = Drawing.Fonts.UI
+        txt.Color = color or Color3.fromRGB(200, 230, 255)
+        txt.Position = Vector2.new(centerX + x, centerY + y)
+        txt.Text = text; txt.Visible = true
+        table.insert(radarObjects, txt)
+    end
+    compass("N", 0, -halfSize + 16, Color3.fromRGB(0, 255, 255))
+    compass("S", 0, halfSize - 16, Color3.fromRGB(255, 100, 100))
+    compass("L", halfSize - 16, 0, Color3.fromRGB(200, 200, 200))
+    compass("O", -halfSize + 16, 0, Color3.fromRGB(200, 200, 200))
+
+    local dirLine = Drawing.new("Line")
+    dirLine.From = Vector2.new(centerX, centerY)
+    dirLine.To = Vector2.new(centerX, centerY - halfSize)
+    dirLine.Thickness = 2
+    dirLine.Color = Color3.fromRGB(255, 255, 255)
+    dirLine.Transparency = 0.5
+    dirLine.Visible = true
+    table.insert(radarObjects, dirLine)
+    radarObjects.dirLine = dirLine
+
+    local centerDot = Drawing.new("Circle")
+    centerDot.Radius = 6
+    centerDot.Position = Vector2.new(centerX, centerY)
+    centerDot.Filled = true
+    centerDot.Color = Color3.fromRGB(0, 255, 255)
+    centerDot.Visible = true
+    table.insert(radarObjects, centerDot)
+
+    local statusIcon = Drawing.new("Text")
+    statusIcon.Size = 18; statusIcon.Center = false; statusIcon.Font = Drawing.Fonts.UI
+    statusIcon.Position = Vector2.new(centerX - halfSize + 8, centerY + halfSize - 28)
+    statusIcon.Text = Config.Radar.FrostFilter and "❄️" or "🔥"
+    statusIcon.Color = Config.Radar.FrostFilter and Color3.fromRGB(0, 255, 200) or Color3.fromRGB(255, 100, 50)
+    statusIcon.Visible = true
+    table.insert(radarObjects, statusIcon)
+    radarObjects.statusIcon = statusIcon
+
+    local statusText = Drawing.new("Text")
+    statusText.Size = 12; statusText.Center = false; statusText.Font = Drawing.Fonts.UI
+    statusText.Color = Color3.fromRGB(160, 210, 255)
+    statusText.Position = Vector2.new(centerX - halfSize + 32, centerY + halfSize - 25)
+    statusText.Text = Config.Radar.FrostFilter and "❄️ Filtro: ON" or "🔥 Filtro: OFF"
+    statusText.Visible = true
+    table.insert(radarObjects, statusText)
+    radarObjects.statusText = statusText
+
+    local zoomText = Drawing.new("Text")
+    zoomText.Size = 11; zoomText.Center = false; zoomText.Font = Drawing.Fonts.UI
+    zoomText.Color = Color3.fromRGB(100, 200, 255)
+    zoomText.Position = Vector2.new(centerX - halfSize + 8, centerY - halfSize + 8)
+    zoomText.Text = "🔍 " .. math.floor(zoomLevel) .. "m"
+    zoomText.Visible = true
+    table.insert(radarObjects, zoomText)
+    radarObjects.zoomText = zoomText
+end
+
+local function HideAllDots()
+    for _, dot in pairs(playerDots) do
+        if dot and dot.Visible ~= nil then dot.Visible = false end
+    end
+    for _, lbl in pairs(playerLabels) do
+        if lbl and lbl.Visible ~= nil then lbl.Visible = false end
+    end
+end
+
+local function UpdateRadar()
+    if not radarActive then
+        for _, obj in pairs(radarObjects) do
+            if obj and obj.Visible ~= nil then obj.Visible = false end
+        end
+        HideAllDots()
+        return
+    end
+
+    for _, obj in pairs(radarObjects) do
+        if obj and obj.Visible ~= nil then obj.Visible = true end
+    end
+
+    if radarObjects.statusText then
+        radarObjects.statusText.Text = Config.Radar.FrostFilter and "❄️ Filtro: ON" or "🔥 Filtro: OFF"
+    end
+    if radarObjects.statusIcon then
+        radarObjects.statusIcon.Text = Config.Radar.FrostFilter and "❄️" or "🔥"
+        radarObjects.statusIcon.Color = Config.Radar.FrostFilter and Color3.fromRGB(0, 255, 200) or Color3.fromRGB(255, 100, 50)
+    end
+    if radarObjects.zoomText then
+        radarObjects.zoomText.Text = "🔍 " .. math.floor(zoomLevel) .. "m"
+    end
+
+    local cam = Camera
+    if not cam then HideAllDots() return end
+    local char = LocalPlayer.Character
+    if not char then HideAllDots() return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then HideAllDots() return end
+
+    local centerX = radarCenterX
+    local centerY = radarCenterY
+    local halfSize = radarHalfSize
+    local maxDist = zoomLevel
+    local scale = 190 / (maxDist * 2)
+    local localPos = root.Position
+
+    if radarObjects.dirLine then
+        local forward = cam.CFrame.LookVector * Vector3.new(1, 0, 1)
+        if forward.Magnitude > 0 then
+            forward = forward.Unit
+            local endX = centerX + (forward.X * halfSize)
+            local endY = centerY + (-forward.Z * halfSize)
+            radarObjects.dirLine.From = Vector2.new(centerX, centerY)
+            radarObjects.dirLine.To = Vector2.new(endX, endY)
+            radarObjects.dirLine.Visible = true
+        end
+    end
+
+    local activePlayers = {}
+    for _, player in pairs(Players:GetPlayers()) do
+        if player == LocalPlayer then continue end
+        local pChar = player.Character
+        if not pChar then continue end
+        local targetPart = pChar:FindFirstChild("Head") or pChar:FindFirstChild("HumanoidRootPart")
+        if not targetPart then continue end
+        local hum = pChar:FindFirstChild("Humanoid")
+        if not hum or hum.Health <= 0 then continue end
+
+        local isSameTeam = false
+        if LocalPlayer.Team and player.Team then
+            isSameTeam = (LocalPlayer.Team == player.Team)
+        end
+        if Config.Radar.FrostFilter and isSameTeam then continue end
+
+        local rel = (targetPart.Position - localPos) * Vector3.new(1, 0, 1)
+        local dist = rel.Magnitude
+        if dist >= maxDist then continue end
+
+        local mapX = centerX + (rel.X * scale)
+        local mapY = centerY + (-rel.Z * scale)
+
+        if math.abs(mapX - centerX) > halfSize or math.abs(mapY - centerY) > halfSize then
+            continue
+        end
+
+        local dot = playerDots[player]
+        if not dot then
+            dot = Drawing.new("Circle")
+            dot.Radius = 4
+            dot.Filled = true
+            dot.Visible = true
+            playerDots[player] = dot
+        end
+        dot.Position = Vector2.new(mapX, mapY)
+        dot.Color = isSameTeam and Color3.fromRGB(80, 255, 255) or Color3.fromRGB(255, 60, 80)
+        dot.Visible = true
+
+        local label = playerLabels[player]
+        if not label then
+            label = Drawing.new("Text")
+            label.Size = 10
+            label.Center = true
+            label.Font = Drawing.Fonts.UI
+            label.Outline = true
+            label.OutlineColor = Color3.fromRGB(0, 0, 0)
+            label.Visible = true
+            playerLabels[player] = label
+        end
+
+        local hpPercent = math.floor((hum.Health / hum.MaxHealth) * 100)
+        local nameColor = isSameTeam and Color3.fromRGB(80, 255, 255) or Color3.fromRGB(255, 60, 80)
+        label.Text = string.format("%s | %d%% | %dm", player.Name, hpPercent, math.floor(dist))
+        label.Color = nameColor
+        label.Position = Vector2.new(mapX, mapY - 16)
+        label.Visible = true
+
+        activePlayers[player] = true
+    end
+
+    for player, dot in pairs(playerDots) do
+        if not activePlayers[player] then
+            dot.Visible = false
+            if playerLabels[player] then playerLabels[player].Visible = false end
+        end
+    end
+end
+
+local function StartRadar()
+    if radarActive or not hasDrawing then return end
+    radarActive = true
+    Config.Radar.Enabled = true
+    BuildRadar()
+    if not radarConnection then
+        radarConnection = RunService.RenderStepped:Connect(UpdateRadar)
+    end
+    if not radarViewportConn then
+        radarViewportConn = Camera:GetPropertyChangedSignal("ViewportSize"):Connect(BuildRadar)
+    end
+    if ToggleUpdates["Radar"] then ToggleUpdates["Radar"]() end
+    print("[🗺️ Radar] ATIVADO")
+end
+
+local function StopRadar()
+    if not radarActive then return end
+    radarActive = false
+    Config.Radar.Enabled = false
+    if radarConnection then radarConnection:Disconnect(); radarConnection = nil end
+    if radarViewportConn then radarViewportConn:Disconnect(); radarViewportConn = nil end
+    for _, obj in pairs(radarObjects) do SafeRemove(obj) end
+    for _, dot in pairs(playerDots) do SafeRemove(dot) end
+    for _, lbl in pairs(playerLabels) do SafeRemove(lbl) end
+    radarObjects = {}
+    playerDots = {}
+    playerLabels = {}
+    if ToggleUpdates["Radar"] then ToggleUpdates["Radar"]() end
+    print("[🗺️ Radar] DESATIVADO")
+end
+
+local function ToggleRadar()
+    if radarActive then StopRadar() else StartRadar() end
+end
+
+-- ====================== INTERFACE (COM REBIND E SEGURANÇA) ======================
 local function CleanupMenu()
-    if inputBeganConn then inputBeganConn:Disconnect(); inputBeganConn = nil end
-    if inputEndedConn then inputEndedConn:Disconnect(); inputEndedConn = nil end
-    if inputChangedConn then inputChangedConn:Disconnect(); inputChangedConn = nil end
-    if menuScreenGui then menuScreenGui:Destroy(); menuScreenGui = nil end
+    -- Desconecta eventos antigos, se existirem
+    pcall(function() if inputBeganConn then inputBeganConn:Disconnect() end end)
+    pcall(function() if inputEndedConn then inputEndedConn:Disconnect() end end)
+    pcall(function() if inputChangedConn then inputChangedConn:Disconnect() end end)
+    if menuScreenGui then menuScreenGui:Destroy() end
 end
 
 local function CreateMenu()
@@ -776,12 +1016,13 @@ local function CreateMenu()
 
     local tabs = {
         {name = "Aimbot", icon = "🎯"},
-        {name = "LockOn", icon = "🔒"},
         {name = "ESP", icon = "👁️"},
         {name = "Farm", icon = "🧲"},
         {name = "Speed", icon = "⚡"},
         {name = "Fly", icon = "🕊️"},
         {name = "Visual", icon = "☀️"},
+        {name = "Radar", icon = "🗺️"},
+        {name = "Teclas", icon = "⌨️"},
         {name = "Info", icon = "❄️"}
     }
     local tabButtons = {}
@@ -795,7 +1036,7 @@ local function CreateMenu()
     contentArea.BorderSizePixel = 0
     contentArea.ScrollBarThickness = 3
     contentArea.ScrollBarImageColor3 = Config.UI.AccentColor
-    contentArea.CanvasSize = UDim2.new(0, 0, 0, 800)
+    contentArea.CanvasSize = UDim2.new(0, 0, 0, 1200)
     contentArea.ClipsDescendants = true
     contentArea.Parent = mainFrame
 
@@ -959,26 +1200,19 @@ local function CreateMenu()
     local y = 5
     CreateToggle(aimPage, y, "🎯 Aimbot", Config.Aimbot, "Enabled", function(val) if val then StartAimbot() else StopAimbot() end end, "Aimbot")
     y = y + 40
-    CreateSlider(aimPage, y, "FOV (Tamanho)", Config.Aimbot, "FOV", 50, 400, 10, UpdateAimbotFOVCircle)
+    CreateSlider(aimPage, y, "FOV (Tamanho)", Config.Aimbot, "FOV", 50, 400, 10, nil)
     y = y + 66
-    CreateToggle(aimPage, y, "⭕ Mostrar FOV", Config.Aimbot, "ShowFOV", UpdateAimbotFOVCircle)
+    CreateSlider(aimPage, y, "🎯 Suavidade", Config.Aimbot, "Smoothness", 0, 1, 0.05)
+    y = y + 66
+    CreateToggle(aimPage, y, "⭕ Mostrar FOV", Config.Aimbot, "ShowFOV", nil, "AimbotFOV")
+    y = y + 40
+    CreateToggle(aimPage, y, "👁️ Visível Apenas", Config.Aimbot, "VisibleCheck", nil)
     y = y + 40
     CreateToggle(aimPage, y, "🛡️ Team Check", Config, "TeamCheck")
     y = y + 40
     CreateToggle(aimPage, y, "📦 Hitbox Expander", Config.Hitbox, "Enabled", function(val) if val then StartHitbox() else StopHitbox() end end)
     y = y + 40
     CreateSlider(aimPage, y, "Fator Hitbox", Config.Hitbox, "ExpandFactor", 1, 5, 0.1)
-
-    -- ========== ABA LOCK ON ==========
-    local lockonPage = tabPages["LockOn"]
-    y = 5
-    CreateToggle(lockonPage, y, "🔒 Lock On", Config.LockOn, "Enabled", function(val) if val then StartLockOn() else StopLockOn() end end, "LockOn")
-    y = y + 40
-    CreateSlider(lockonPage, y, "FOV", Config.LockOn, "FOV", 50, 360, 5, UpdateLockOnFOVCircle)
-    y = y + 66
-    CreateSlider(lockonPage, y, "Suavidade", Config.LockOn, "Smoothness", 0, 0.5, 0.01, nil)
-    y = y + 66
-    CreateToggle(lockonPage, y, "⭕ Mostrar FOV", Config.LockOn, "ShowFOV", UpdateLockOnFOVCircle)
 
     -- ========== ABA ESP ==========
     local espPage = tabPages["ESP"]
@@ -1025,6 +1259,87 @@ local function CreateMenu()
     y = 5
     CreateToggle(visualPage, y, "☀️ Full Bright", Config.Visual, "FullBrightEnabled", function(val) SetFullBrightEnabled(val) end, "FullBright")
 
+    -- ========== ABA RADAR ==========
+    local radarPage = tabPages["Radar"]
+    y = 5
+    CreateToggle(radarPage, y, "🗺️ Radar Tático", Config.Radar, "Enabled", function(val) 
+        if val then StartRadar() else StopRadar() end 
+    end, "Radar")
+    y = y + 40
+    CreateSlider(radarPage, y, "🔍 Alcance (Zoom)", Config.Radar, "MaxDistance", 80, 600, 10, function(val)
+        zoomLevel = val
+        if radarObjects.zoomText then
+            radarObjects.zoomText.Text = "🔍 " .. math.floor(zoomLevel) .. "m"
+        end
+    end)
+    y = y + 66
+    CreateToggle(radarPage, y, "❄️ Filtro Gélido", Config.Radar, "FrostFilter", nil, "RadarFilter")
+
+    -- ========== ABA TECLAS (REBIND) ==========
+    local keysPage = tabPages["Teclas"]
+    local keyY = 5
+
+    local function createKeyBindRow(actionName, displayName)
+        local bind = KeyBinds[actionName]
+        if not bind then return end
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1, -8, 0, 34)
+        frame.Position = UDim2.new(0, 4, 0, keyY)
+        frame.BackgroundColor3 = Config.UI.SectionColor
+        frame.BackgroundTransparency = 0.5
+        frame.BorderSizePixel = 0
+        frame.Parent = keysPage
+        Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+        Instance.new("UIStroke", frame).Color = Config.UI.BorderColor
+        frame.UIStroke.Thickness = 0.5
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(0, 150, 1, 0)
+        label.Position = UDim2.new(0, 8, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = displayName .. ":"
+        label.TextColor3 = Config.UI.TextColor
+        label.Font = Enum.Font.Gotham
+        label.TextSize = 11
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = frame
+
+        local keyBtn = Instance.new("TextButton")
+        keyBtn.Size = UDim2.new(0, 80, 0, 24)
+        keyBtn.Position = UDim2.new(1, -92, 0.5, -12)
+        keyBtn.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+        local currentKey = bind[1][bind[2]]
+        keyBtn.Text = currentKey.Name
+        keyBtn.TextColor3 = Config.UI.TextColor
+        keyBtn.Font = Enum.Font.Gotham
+        keyBtn.TextSize = 11
+        keyBtn.AutoButtonColor = false
+        keyBtn.Parent = frame
+        Instance.new("UICorner", keyBtn).CornerRadius = UDim.new(0, 4)
+
+        keyBtn.MouseButton1Click:Connect(function()
+            if rebindingKey then return end
+            rebindingKey = actionName
+            rebindButton = keyBtn
+            keyBtn.Text = "..."
+            keyBtn.BackgroundColor3 = Config.UI.AccentColor
+        end)
+
+        keyY = keyY + 38
+        return keyBtn
+    end
+
+    createKeyBindRow("Menu", "Menu (F1)")
+    createKeyBindRow("AimbotToggle", "Aimbot (F2)")
+    createKeyBindRow("ESPToggle", "ESP (F3)")
+    createKeyBindRow("RadarToggle", "Radar (F10)")
+    createKeyBindRow("FreeCam", "Free Cam (F4)")
+    createKeyBindRow("WalkSpeed", "WalkSpeed (F5)")
+    createKeyBindRow("Jump", "Pulo Explosivo (F6)")
+    createKeyBindRow("Fly", "Fly (F7)")
+    createKeyBindRow("NoClip", "NoClip (F8)")
+    createKeyBindRow("FullBright", "Full Bright (F9)")
+
     -- ========== ABA INFO ==========
     local infoPage = tabPages["Info"]
     local infoLabel = Instance.new("TextLabel")
@@ -1034,7 +1349,7 @@ local function CreateMenu()
     infoLabel.Text = [[
     ❄️ FROSTHUB ULTRA ❄️
     
-    🎮 ATALHOS:
+    🎮 ATALHOS (reconfiguráveis na aba "Teclas"):
     [F1] Menu
     [F2] Aimbot
     [F3] ESP
@@ -1044,13 +1359,14 @@ local function CreateMenu()
     [F7] Fly
     [F8] NoClip
     [F9] Full Bright
-    [E] Lock On (Toggle)
+    [F10] Radar Tático
     [Botão Dir.] Aimbot (Hold)
     
-    🔒 NOVA ABA LOCK ON:
-    Ative com E e trave a câmera
-    no inimigo mais próximo.
-    Ideal para Jujutsu Shenanigans!
+    🔒 AIMBOT BRUTO COM WALLBANG CHECK
+    🗺️ RADAR TÁTICO COM NOME, HP E DISTÂNCIA
+    🧱 VISÍVEL APENAS (WALLBANG)
+    🔫 AIMBOT BASEADO NO XFROST (RIVALS)
+    ⚡ SMOOTHNESS PADRÃO = 0 (INSTANTÂNEO)
     ]]
     infoLabel.TextColor3 = Config.UI.SubTextColor
     infoLabel.Font = Enum.Font.Gotham
@@ -1110,18 +1426,41 @@ local function CreateMenu()
         if input.UserInputType == Enum.UserInputType.MouseButton1 then dragStart = nil end
     end)
 
-    -- Teclas
+    -- Teclas (com suporte a rebind)
     inputBeganConn = UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+        if rebindingKey then
+            if input.UserInputType == Enum.UserInputType.Keyboard then
+                local bind = KeyBinds[rebindingKey]
+                if bind then
+                    bind[1][bind[2]] = input.KeyCode
+                    rebindButton.Text = input.KeyCode.Name
+                end
+                rebindingKey = nil
+                rebindButton.BackgroundColor3 = Color3.fromRGB(20, 30, 50)
+                rebindButton = nil
+                return
+            else
+                return
+            end
+        end
+
         if UserInputService:GetFocusedTextBox() then return end
         if input.UserInputType == Config.Aimbot.AimKey then
             holdingAimKey = true
         elseif input.KeyCode == Config.UI.KeyToggleMenu then
             Config.UI.MenuEnabled = not Config.UI.MenuEnabled
-            if menuScreenGui then menuScreenGui.Enabled = Config.UI.MenuEnabled else if Config.UI.MenuEnabled then CreateMenu() end end
+            if menuScreenGui then
+                menuScreenGui.Enabled = Config.UI.MenuEnabled
+                if mainFrame then mainFrame.Visible = true end
+            else
+                if Config.UI.MenuEnabled then CreateMenu() end
+            end
         elseif input.KeyCode == Config.UI.KeyToggleAimbot then
             Config.Aimbot.Enabled = not Config.Aimbot.Enabled
+            Config.Aimbot.ShowFOV = Config.Aimbot.Enabled
             if Config.Aimbot.Enabled then StartAimbot() else StopAimbot() end
             if ToggleUpdates["Aimbot"] then ToggleUpdates["Aimbot"]() end
+            if ToggleUpdates["AimbotFOV"] then ToggleUpdates["AimbotFOV"]() end
         elseif input.KeyCode == Config.UI.KeyToggleESP then
             Config.ESP.Enabled = not Config.ESP.Enabled
             if Config.ESP.Enabled then StartESP() else StopESP() end
@@ -1138,10 +1477,8 @@ local function CreateMenu()
             if Config.Fly.NoClipEnabled then StartNoClip() else StopNoClip() end
             if ToggleUpdates["NoClipEnabled"] then ToggleUpdates["NoClipEnabled"]() end
         elseif input.KeyCode == Config.Visual.FullBrightKey then SetFullBrightEnabled(not Config.Visual.FullBrightEnabled)
-        elseif input.KeyCode == Config.LockOn.ToggleKey then  -- Tecla E controla apenas o Lock On
-            Config.LockOn.Enabled = not Config.LockOn.Enabled
-            if Config.LockOn.Enabled then StartLockOn() else StopLockOn() end
-            if ToggleUpdates["LockOn"] then ToggleUpdates["LockOn"]() end
+        elseif input.KeyCode == Config.UI.KeyToggleRadar then
+            ToggleRadar()
         elseif input.KeyCode == Enum.KeyCode.Space then spaceHeld = true
         end
     end)
@@ -1151,34 +1488,38 @@ local function CreateMenu()
         elseif input.KeyCode == Enum.KeyCode.Space then spaceHeld = false
         end
     end)
-
-    -- Sincroniza os FOVs com os estados atuais dos toggles
-    UpdateAimbotFOVCircle()
-    UpdateLockOnFOVCircle()
 end
 
 -- ====================== INICIALIZAÇÃO ======================
-print("[FrostHub Ultra] Iniciando...")
+print("[FrostHub Ultra] Iniciando (Xeno compatível)...")
 repeat task.wait() until LocalPlayer.Character
 repeat task.wait() until workspace.CurrentCamera
 CreateMenu()
 SaveOriginalLighting()
+
+fovUpdateConn = RunService.RenderStepped:Connect(UpdateFOVCircles)
+
 Players.PlayerRemoving:Connect(function(p)
-    if Config.ESP.Enabled then disableESP() end
+    cleanupPlayerESP(p)
 end)
+
 LocalPlayer.CharacterAdded:Connect(function(char)
     task.wait(0.1)
     if Config.Speed.WalkEnabled then local hum = char:FindFirstChild("Humanoid"); if hum then ApplyWalk(hum) end; if not walkLoop then SetWalkEnabled(true) end end
     if Config.Fly.FlyEnabled then StopFly(); StartFly() end
     if Config.Fly.NoClipEnabled then StopNoClip(); StartNoClip() end
     if Config.Aimbot.Enabled then StopAimbot(); StartAimbot() end
-    if Config.LockOn.Enabled then StopLockOn(); StartLockOn() end
     if Config.ESP.Enabled then StopESP(); StartESP() end
+    if Config.Radar.Enabled then 
+        StopRadar() 
+        StartRadar() 
+    end
     if Config.FreeCam.Enabled and LocalPlayer.Character then
         local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if root then root.Anchored = true; freezedRootPart = root end
     end
 end)
+
 RunService.Heartbeat:Connect(function()
     if not Config.Speed.JumpEnabled or not spaceHeld then return end
     local char = LocalPlayer.Character
@@ -1187,11 +1528,14 @@ RunService.Heartbeat:Connect(function()
     if not root then return end
     root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Config.Speed.JumpForce, root.AssemblyLinearVelocity.Z)
 end)
-LocalPlayer.PlayerRemoving:Connect(function()
-    StopAimbot(); StopLockOn(); StopESP(); StopAutoFarm(); StopHitbox(); DisableFreeCam()
+
+Players.PlayerRemoving:Connect(function()
+    StopAimbot(); StopESP(); StopAutoFarm(); StopHitbox(); DisableFreeCam(); StopRadar()
     if walkLoop then walkLoop:Disconnect() end
     StopFly(); StopNoClip()
     if fullBrightLoop then fullBrightLoop:Disconnect() end
+    if fovUpdateConn then fovUpdateConn:Disconnect() end
     CleanupMenu()
 end)
-print("[FrostHub Ultra] Carregado! ❄️")
+
+print("[FrostHub Ultra] Carregado! ❄️ (Modo Xeno - sem Drawing)")
