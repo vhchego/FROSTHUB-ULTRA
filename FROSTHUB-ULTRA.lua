@@ -1505,60 +1505,60 @@ local function CreateMenu()
         elseif input.KeyCode == Enum.KeyCode.Space then spaceHeld = true
         end
     end)
-    inputEndedConn = UserInputService.InputEnded:Connect(função(entrada)
-        se input.UserInputType == Config.Aimbot.AimKey então
-            holdingAimKey = falso
-        caso contrário input.KeyCode == Enum.KeyCode.Space então espaço retido = falso
-        fim
-    fim)
-fim
+    inputEndedConn = UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Config.Aimbot.AimKey then
+            holdingAimKey = false
+        elseif input.KeyCode == Enum.KeyCode.Space then spaceHeld = false
+        end
+    end)
+end
 
 -- ====================== INICIALIZAÇÃO ======================
-imprimir("[FrostHub Ultra] Iniciando...")
-repetir tarefa.esperar() até LocalPlayer.Personagem
-repetir tarefa.esperar() até espaço de trabalho.CurrentCamera
-CriarMenu()
-SalvarIluminaçãoOriginal()
+print("[FrostHub Ultra] Iniciando...")
+repeat task.wait() until LocalPlayer.Character
+repeat task.wait() until workspace.CurrentCamera
+CreateMenu()
+SaveOriginalLighting()
 
 fovUpdateConn = RunService.RenderStepped:Connect(UpdateFOVCircles)
 
-Jogadores.JogadorRemovendo:Conectar(função(p)
+Players.PlayerRemoving:Connect(function(p)
     cleanupPlayerESP(p)
-fim)
+end)
 
-LocalPlayer.CharacterAdded:Conectar(função(char)
-    tarefa.esperar(0,1)
-    se Config.Speed.WalkEnabled então local hum = char:FindFirstChild("Humanoide"); se cantarolar então AplicarCaminhada(hum) fim; se não andarLoop então DefinirCaminhadaAtivada(verdadeiro) fim fim
-    se Config.Fly.FlyHabilitado então PararVoar(); IniciarVoar() fim
-    se Config.Fly.NoClipHabilitado então PararNoClip(); IniciarNoClip() fim
-    se Config.Aimbot.Habilitado então StopAimbot(); IniciarAimbot() fim
-    se Config.ESP.Habilitado então PararESP(); IniciarESP() fim
-    se Config.Radar.Habilitado então 
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.wait(0.1)
+    if Config.Speed.WalkEnabled then local hum = char:FindFirstChild("Humanoid"); if hum then ApplyWalk(hum) end; if not walkLoop then SetWalkEnabled(true) end end
+    if Config.Fly.FlyEnabled then StopFly(); StartFly() end
+    if Config.Fly.NoClipEnabled then StopNoClip(); StartNoClip() end
+    if Config.Aimbot.Enabled then StopAimbot(); StartAimbot() end
+    if Config.ESP.Enabled then StopESP(); StartESP() end
+    if Config.Radar.Enabled then 
         StopRadar() 
-        IniciarRadar() 
-    fim
-    se Config.FreeCam.Habilitado e LocalPlayer.Personagem então
-        local root = LocalPlayer.Character:FindFirstChild("Parte Raiz Humanóide")
-        se raiz então raiz.Ancorado = verdadeiro; freezedRootPart = raiz fim
-    fim
-fim)
+        StartRadar() 
+    end
+    if Config.FreeCam.Enabled and LocalPlayer.Character then
+        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if root then root.Anchored = true; freezedRootPart = root end
+    end
+end)
 
-RunService.Heartbeat:Conectar(função()
-    se não Config.Speed.JumpHabilitado ou não espaço retido então retornar fim
+RunService.Heartbeat:Connect(function()
+    if not Config.Speed.JumpEnabled or not spaceHeld then return end
     local char = LocalPlayer.Character
-    se não char então retornar fim
-    local raiz = char:FindFirstChild("Parte Raiz Humanóide")
-    se não raiz então retornar fim
+    if not char then return end
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
     root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Config.Speed.JumpForce, root.AssemblyLinearVelocity.Z)
-fim)
+end)
 
-LocalPlayer.PlayerRemoving:Conectar(função()
-    StopAimbot(); StopESP(); StopAutoFarm(); StopHitbox(); DesabilitarFreeCam(); StopRadar()
-    se andarLoop então walkLoop:Desconectar() fim
+LocalPlayer.PlayerRemoving:Connect(function()
+    StopAimbot(); StopESP(); StopAutoFarm(); StopHitbox(); DisableFreeCam(); StopRadar()
+    if walkLoop then walkLoop:Disconnect() end
     StopFly(); StopNoClip()
-    se Loop Brilhante Completo então fullBrightLoop:Desconectar() fim
-    se fovUpdateConn então fovUpdateConn:Desconectar() fim
-    Menu de limpeza()
-fim)
+    if fullBrightLoop then fullBrightLoop:Disconnect() end
+    if fovUpdateConn then fovUpdateConn:Disconnect() end
+    CleanupMenu()
+end)
 
-imprimir("[FrostHub Ultra] Carregado! ❄️ (Voe original restaurado + Rebind de teclas)")
+print("[FrostHub Ultra] Carregado! ❄️ (Fly original restaurado + Rebind de teclas)")
