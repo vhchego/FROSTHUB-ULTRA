@@ -1,8 +1,7 @@
 --[[
-    ❄️ FROSTHUB ULTRA (XENO - SEM DRAWING) ❄️
-    - Verifica disponibilidade do Drawing
-    - Desativa FOV/Radar se necessário
-    - Interface sempre funcional
+    ❄️ FROSTHUB ULTRA ❄️
+    FOV COM DRAWING + AIMBOT (XFROST) + ESP OTIMIZADO + INTERFACE COMPLETA + RADAR TÁTICO + WALLBANG CHECK
+    (LockOn removido | Fly ORIGINAL restaurado | Rebind de teclas adicionado)
 ]]
 
 local Players = game:GetService("Players")
@@ -15,9 +14,6 @@ local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local Camera = workspace.CurrentCamera
 
--- Verifica se a biblioteca Drawing existe
-local hasDrawing = pcall(function() return Drawing.new end)
-
 -- ====================== CONFIGURAÇÕES ======================
 local Config = {
     TeamCheck = true,
@@ -28,7 +24,7 @@ local Config = {
         FOV = 200,
         Smoothness = 0,
         AimPart = "Head",
-        ShowFOV = hasDrawing,       -- só mostra se Drawing existir
+        ShowFOV = true,
         FOVColor = Color3.fromRGB(0, 255, 0),
         VisibleCheck = false
     },
@@ -74,8 +70,7 @@ local Config = {
         FrostFilter = false,
         MinZoom = 80,
         MaxZoom = 600,
-        ZoomStep = 25,
-        ToggleKey = Enum.KeyCode.F10
+        ZoomStep = 25
     },
     UI = {
         KeyToggleMenu = Enum.KeyCode.F1,
@@ -97,6 +92,7 @@ local Config = {
     }
 }
 
+-- ====================== TABELA DE BINDINGS PARA REBIND ======================
 local KeyBinds = {
     Menu = { Config.UI, "KeyToggleMenu" },
     AimbotToggle = { Config.UI, "KeyToggleAimbot" },
@@ -120,6 +116,7 @@ local autoFarmConnection = nil
 local hitboxConnection = nil
 local menuScreenGui = nil
 local mainFrame = nil
+local inputBeganConn, inputEndedConn, inputChangedConn = nil, nil, nil
 local fovCircleAimbot = nil
 local fovUpdateConn = nil
 
@@ -147,6 +144,7 @@ local resizeStartSize = nil
 local expandedParts = {}
 local ToggleUpdates = {}
 
+-- Variáveis de rebind
 local rebindingKey = nil
 local rebindButton = nil
 
@@ -179,9 +177,15 @@ local function IsTargetVisible(targetPart)
     params.IgnoreWater = true
 
     local result = Workspace:Raycast(startPos, direction * distance, params)
-    if not result then return true end
+    if not result then
+        return true
+    end
+
     local hitChar = result.Instance:FindFirstAncestorOfClass("Model")
-    if hitChar == targetPart.Parent then return true end
+    if hitChar == targetPart.Parent then
+        return true
+    end
+
     return false
 end
 
@@ -221,7 +225,9 @@ local function GetBestAimbotTarget()
         local part = char:FindFirstChild(Config.Aimbot.AimPart)
         if not part then continue end
 
-        if Config.Aimbot.VisibleCheck and not IsTargetVisible(part) then continue end
+        if Config.Aimbot.VisibleCheck and not IsTargetVisible(part) then
+            continue
+        end
 
         local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
         if not onScreen then continue end
@@ -232,6 +238,7 @@ local function GetBestAimbotTarget()
             bestPart = part
         end
     end
+
     return bestPart
 end
 
@@ -264,6 +271,7 @@ local function moveMouseToTarget(targetPart)
 
     local moveX = delta.X * adjustedSmooth
     local moveY = delta.Y * adjustedSmooth
+
     if mousemoverel then
         mousemoverel(moveX, moveY)
     elseif syn and syn.input then
@@ -275,28 +283,28 @@ local function AimbotLoop()
     if Config.FreeCam.Enabled then return end
     if not Config.Aimbot.Enabled then return end
     if not holdingAimKey then return end
+
     local targetPart = GetBestAimbotTarget()
-    if targetPart then moveMouseToTarget(targetPart) end
+    if targetPart then
+        moveMouseToTarget(targetPart)
+    end
 end
 
--- ====================== FOV CIRCLES (PROTEGIDO) ======================
+-- ====================== FOV CIRCLES ======================
 local function UpdateFOVCircles()
-    if not hasDrawing then return end
     if Config.Aimbot.Enabled and Config.Aimbot.ShowFOV and not Config.FreeCam.Enabled then
         if not fovCircleAimbot then
-            pcall(function()
-                fovCircleAimbot = Drawing.new("Circle")
-            end)
+            fovCircleAimbot = Drawing.new("Circle")
         end
-        if fovCircleAimbot then
-            fovCircleAimbot.Color = Config.Aimbot.FOVColor
-            fovCircleAimbot.Thickness = 2
-            fovCircleAimbot.Radius = Config.Aimbot.FOV
-            fovCircleAimbot.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-            fovCircleAimbot.Visible = true
-        end
+        fovCircleAimbot.Color = Config.Aimbot.FOVColor
+        fovCircleAimbot.Thickness = 2
+        fovCircleAimbot.Radius = Config.Aimbot.FOV
+        fovCircleAimbot.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+        fovCircleAimbot.Visible = true
     else
-        if fovCircleAimbot then fovCircleAimbot.Visible = false end
+        if fovCircleAimbot then
+            fovCircleAimbot.Visible = false
+        end
     end
 end
 
@@ -324,6 +332,7 @@ local function espUpdateLoop()
                 if espData[player] then cleanupPlayerESP(player) end
                 continue
             end
+
             local char = player.Character
             if not char then
                 if espData[player] then
@@ -332,6 +341,7 @@ local function espUpdateLoop()
                 end
                 continue
             end
+
             local head = char:FindFirstChild("Head")
             if not head then
                 if espData[player] then
@@ -340,6 +350,7 @@ local function espUpdateLoop()
                 end
                 continue
             end
+
             if not espData[player] then espData[player] = {} end
             local data = espData[player]
 
@@ -624,7 +635,7 @@ local function StopHitbox()
     for _, player in ipairs(Players:GetPlayers()) do RestoreHitbox(player) end
 end
 
--- ====================== RADAR TÁTICO (PROTEGIDO) ======================
+-- ====================== RADAR TÁTICO ======================
 local radarActive = false
 local radarConnection = nil
 local radarViewportConn = nil
@@ -643,7 +654,6 @@ local function SafeRemove(obj)
 end
 
 local function BuildRadar()
-    if not hasDrawing then return end
     for _, obj in pairs(radarObjects) do SafeRemove(obj) end
     radarObjects = {}
     for _, dot in pairs(playerDots) do SafeRemove(dot) end
@@ -896,7 +906,7 @@ local function UpdateRadar()
 end
 
 local function StartRadar()
-    if radarActive or not hasDrawing then return end
+    if radarActive then return end
     radarActive = true
     Config.Radar.Enabled = true
     BuildRadar()
@@ -914,8 +924,14 @@ local function StopRadar()
     if not radarActive then return end
     radarActive = false
     Config.Radar.Enabled = false
-    if radarConnection then radarConnection:Disconnect(); radarConnection = nil end
-    if radarViewportConn then radarViewportConn:Disconnect(); radarViewportConn = nil end
+    if radarConnection then
+        radarConnection:Disconnect()
+        radarConnection = nil
+    end
+    if radarViewportConn then
+        radarViewportConn:Disconnect()
+        radarViewportConn = nil
+    end
     for _, obj in pairs(radarObjects) do SafeRemove(obj) end
     for _, dot in pairs(playerDots) do SafeRemove(dot) end
     for _, lbl in pairs(playerLabels) do SafeRemove(lbl) end
@@ -927,16 +943,19 @@ local function StopRadar()
 end
 
 local function ToggleRadar()
-    if radarActive then StopRadar() else StartRadar() end
+    if radarActive then
+        StopRadar()
+    else
+        StartRadar()
+    end
 end
 
--- ====================== INTERFACE (COM REBIND E SEGURANÇA) ======================
+-- ====================== INTERFACE COMPLETA (COM REBIND) ======================
 local function CleanupMenu()
-    -- Desconecta eventos antigos, se existirem
-    pcall(function() if inputBeganConn then inputBeganConn:Disconnect() end end)
-    pcall(function() if inputEndedConn then inputEndedConn:Disconnect() end end)
-    pcall(function() if inputChangedConn then inputChangedConn:Disconnect() end end)
-    if menuScreenGui then menuScreenGui:Destroy() end
+    if inputBeganConn then inputBeganConn:Disconnect(); inputBeganConn = nil end
+    if inputEndedConn then inputEndedConn:Disconnect(); inputEndedConn = nil end
+    if inputChangedConn then inputChangedConn:Disconnect(); inputChangedConn = nil end
+    if menuScreenGui then menuScreenGui:Destroy(); menuScreenGui = nil end
 end
 
 local function CreateMenu()
@@ -1014,6 +1033,7 @@ local function CreateMenu()
     Instance.new("UIStroke", tabBar).Color = Config.UI.BorderColor
     tabBar.UIStroke.Thickness = 1
 
+    -- Adicionada aba "Teclas"
     local tabs = {
         {name = "Aimbot", icon = "🎯"},
         {name = "ESP", icon = "👁️"},
@@ -1259,7 +1279,7 @@ local function CreateMenu()
     y = 5
     CreateToggle(visualPage, y, "☀️ Full Bright", Config.Visual, "FullBrightEnabled", function(val) SetFullBrightEnabled(val) end, "FullBright")
 
-    -- ========== ABA RADAR ==========
+    -- ========== 🗺️ ABA RADAR ==========
     local radarPage = tabPages["Radar"]
     y = 5
     CreateToggle(radarPage, y, "🗺️ Radar Tático", Config.Radar, "Enabled", function(val) 
@@ -1275,7 +1295,7 @@ local function CreateMenu()
     y = y + 66
     CreateToggle(radarPage, y, "❄️ Filtro Gélido", Config.Radar, "FrostFilter", nil, "RadarFilter")
 
-    -- ========== ABA TECLAS (REBIND) ==========
+    -- ========== 🆕 ABA TECLAS (REBIND) ==========
     local keysPage = tabPages["Teclas"]
     local keyY = 5
 
@@ -1428,6 +1448,7 @@ local function CreateMenu()
 
     -- Teclas (com suporte a rebind)
     inputBeganConn = UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+        -- Captura rebind primeiro
         if rebindingKey then
             if input.UserInputType == Enum.UserInputType.Keyboard then
                 local bind = KeyBinds[rebindingKey]
@@ -1451,7 +1472,9 @@ local function CreateMenu()
             Config.UI.MenuEnabled = not Config.UI.MenuEnabled
             if menuScreenGui then
                 menuScreenGui.Enabled = Config.UI.MenuEnabled
-                if mainFrame then mainFrame.Visible = true end
+                if mainFrame then
+                    mainFrame.Visible = true
+                end
             else
                 if Config.UI.MenuEnabled then CreateMenu() end
             end
@@ -1482,60 +1505,60 @@ local function CreateMenu()
         elseif input.KeyCode == Enum.KeyCode.Space then spaceHeld = true
         end
     end)
-    inputEndedConn = UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Config.Aimbot.AimKey then
-            holdingAimKey = false
-        elseif input.KeyCode == Enum.KeyCode.Space then spaceHeld = false
-        end
-    end)
-end
+    inputEndedConn = UserInputService.InputEnded:Connect(função(entrada)
+        se input.UserInputType == Config.Aimbot.AimKey então
+            holdingAimKey = falso
+        caso contrário input.KeyCode == Enum.KeyCode.Space então espaço retido = falso
+        fim
+    fim)
+fim
 
 -- ====================== INICIALIZAÇÃO ======================
-print("[FrostHub Ultra] Iniciando (Xeno compatível)...")
-repeat task.wait() until LocalPlayer.Character
-repeat task.wait() until workspace.CurrentCamera
-CreateMenu()
-SaveOriginalLighting()
+imprimir("[FrostHub Ultra] Iniciando...")
+repetir tarefa.esperar() até LocalPlayer.Personagem
+repetir tarefa.esperar() até espaço de trabalho.CurrentCamera
+CriarMenu()
+SalvarIluminaçãoOriginal()
 
 fovUpdateConn = RunService.RenderStepped:Connect(UpdateFOVCircles)
 
-Players.PlayerRemoving:Connect(function(p)
+Jogadores.JogadorRemovendo:Conectar(função(p)
     cleanupPlayerESP(p)
-end)
+fim)
 
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(0.1)
-    if Config.Speed.WalkEnabled then local hum = char:FindFirstChild("Humanoid"); if hum then ApplyWalk(hum) end; if not walkLoop then SetWalkEnabled(true) end end
-    if Config.Fly.FlyEnabled then StopFly(); StartFly() end
-    if Config.Fly.NoClipEnabled then StopNoClip(); StartNoClip() end
-    if Config.Aimbot.Enabled then StopAimbot(); StartAimbot() end
-    if Config.ESP.Enabled then StopESP(); StartESP() end
-    if Config.Radar.Enabled then 
+LocalPlayer.CharacterAdded:Conectar(função(char)
+    tarefa.esperar(0,1)
+    se Config.Speed.WalkEnabled então local hum = char:FindFirstChild("Humanoide"); se cantarolar então AplicarCaminhada(hum) fim; se não andarLoop então DefinirCaminhadaAtivada(verdadeiro) fim fim
+    se Config.Fly.FlyHabilitado então PararVoar(); IniciarVoar() fim
+    se Config.Fly.NoClipHabilitado então PararNoClip(); IniciarNoClip() fim
+    se Config.Aimbot.Habilitado então StopAimbot(); IniciarAimbot() fim
+    se Config.ESP.Habilitado então PararESP(); IniciarESP() fim
+    se Config.Radar.Habilitado então 
         StopRadar() 
-        StartRadar() 
-    end
-    if Config.FreeCam.Enabled and LocalPlayer.Character then
-        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root then root.Anchored = true; freezedRootPart = root end
-    end
-end)
+        IniciarRadar() 
+    fim
+    se Config.FreeCam.Habilitado e LocalPlayer.Personagem então
+        local root = LocalPlayer.Character:FindFirstChild("Parte Raiz Humanóide")
+        se raiz então raiz.Ancorado = verdadeiro; freezedRootPart = raiz fim
+    fim
+fim)
 
-RunService.Heartbeat:Connect(function()
-    if not Config.Speed.JumpEnabled or not spaceHeld then return end
+RunService.Heartbeat:Conectar(função()
+    se não Config.Speed.JumpHabilitado ou não espaço retido então retornar fim
     local char = LocalPlayer.Character
-    if not char then return end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+    se não char então retornar fim
+    local raiz = char:FindFirstChild("Parte Raiz Humanóide")
+    se não raiz então retornar fim
     root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Config.Speed.JumpForce, root.AssemblyLinearVelocity.Z)
-end)
+fim)
 
-Players.PlayerRemoving:Connect(function()
-    StopAimbot(); StopESP(); StopAutoFarm(); StopHitbox(); DisableFreeCam(); StopRadar()
-    if walkLoop then walkLoop:Disconnect() end
+LocalPlayer.PlayerRemoving:Conectar(função()
+    StopAimbot(); StopESP(); StopAutoFarm(); StopHitbox(); DesabilitarFreeCam(); StopRadar()
+    se andarLoop então walkLoop:Desconectar() fim
     StopFly(); StopNoClip()
-    if fullBrightLoop then fullBrightLoop:Disconnect() end
-    if fovUpdateConn then fovUpdateConn:Disconnect() end
-    CleanupMenu()
-end)
+    se Loop Brilhante Completo então fullBrightLoop:Desconectar() fim
+    se fovUpdateConn então fovUpdateConn:Desconectar() fim
+    Menu de limpeza()
+fim)
 
-print("[FrostHub Ultra] Carregado! ❄️ (Modo Xeno - sem Drawing)")
+imprimir("[FrostHub Ultra] Carregado! ❄️ (Voe original restaurado + Rebind de teclas)")
