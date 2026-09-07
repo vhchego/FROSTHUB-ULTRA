@@ -1256,7 +1256,7 @@ local function CreateMenu()
     y = 5
     CreateToggle(speedPage, y, "⚡ WalkSpeed", Config.Speed, "WalkEnabled", function(val) SetWalkEnabled(val) end, "WalkEnabled")
     y = y + 40
-    CreateSlider(speedPage, y, "Velocidade", Config.Speed, "WalkSpeed", 1, 1000, 1)  -- máximo 1000
+    CreateSlider(speedPage, y, "Velocidade", Config.Speed, "WalkSpeed", 1, 1000, 1)
     y = y + 66
     CreateToggle(speedPage, y, "🦘 Pulo Explosivo", Config.Speed, "JumpEnabled", function(val) SetJumpEnabled(val) end, "JumpEnabled")
     y = y + 40
@@ -1346,16 +1346,16 @@ local function CreateMenu()
         return keyBtn
     end
 
-    createKeyBindRow("Menu", "Menu (F1)")
-    createKeyBindRow("AimbotToggle", "Aimbot (F2)")
-    createKeyBindRow("ESPToggle", "ESP (F3)")
-    createKeyBindRow("RadarToggle", "Radar (F10)")
-    createKeyBindRow("FreeCam", "Free Cam (F4)")
-    createKeyBindRow("WalkSpeed", "WalkSpeed (F5)")
-    createKeyBindRow("Jump", "Pulo Explosivo (F6)")
-    createKeyBindRow("Fly", "Fly (F7)")
-    createKeyBindRow("NoClip", "NoClip (F8)")
-    createKeyBindRow("FullBright", "Full Bright (F9)")
+    createKeyBindRow("Menu", "📋 Menu (F1)")
+    createKeyBindRow("AimbotToggle", "🎯 Aimbot (F2)")
+    createKeyBindRow("ESPToggle", "👁️ ESP (F3)")
+    createKeyBindRow("RadarToggle", "🗺️ Radar (F10)")
+    createKeyBindRow("FreeCam", "🎥 Free Cam (F4)")
+    createKeyBindRow("WalkSpeed", "⚡ WalkSpeed (F5)")
+    createKeyBindRow("Jump", "🦘 Pulo Explosivo (F6)")
+    createKeyBindRow("Fly", "🕊️ Fly (F7)")
+    createKeyBindRow("NoClip", "🚪 NoClip (F8)")
+    createKeyBindRow("FullBright", "☀️ Full Bright (F9)")
 
     -- ========== ❄️ ABA INFO ==========
     local infoPage = tabPages["Info"]
