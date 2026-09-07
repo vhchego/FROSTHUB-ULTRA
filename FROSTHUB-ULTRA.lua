@@ -1,7 +1,7 @@
 --[[
     ❄️ FROSTHUB ULTRA ❄️
     FOV COM DRAWING + AIMBOT (XFROST) + ESP OTIMIZADO + INTERFACE COMPLETA + RADAR TÁTICO + WALLBANG CHECK
-    (LockOn removido | Fly ORIGINAL restaurado | Rebind de teclas adicionado | Velocidade máx. 1000)
+    (LockOn removido | Fly ORIGINAL restaurado | Rebind de teclas adicionado | Velocidade máx. 1000 | Execução infinita)
 ]]
 
 local Players = game:GetService("Players")
@@ -1558,3 +1558,9 @@ Players.PlayerRemoving:Connect(function()
 end)
 
 print("[FrostHub Ultra] Carregado! ❄️ (Fly original restaurado + Rebind de teclas + Velocidade máx. 1000)")
+
+-- ====================== KEEP ALIVE INFINITO ======================
+-- Mantém o script rodando para sempre (evita encerramento prematuro)
+while true do
+    task.wait(60)
+end
