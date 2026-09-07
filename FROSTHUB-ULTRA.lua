@@ -1,73 +1,73 @@
 --[[
     ❄️ FROSTHUB ULTRA ❄️
-    FOV COM DRAWING + AIMBOT (XFROST) + ESP OTIMIZADO + INTERFACE COMPLETA + RADAR TÁTICO + WALLBANG CHECK
-    (LockOn removido | Fly ORIGINAL restaurado | Rebind de teclas adicionado)
+    DESENHO FOV COM + AIMBOT (XFROST) + ESP OTIMIZADO + INTERFACE COMPLETA + RADAR TÁTICO + WALLBANG CHECK
+    (LockOn removido | Fly ORIGINAL restaurado | Rebind de teclas adicionado | Velocidade máx. 1000)
 ]]
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-local LocalPlayer = Players.LocalPlayer
-local TweenService = game:GetService("TweenService")
-local Lighting = game:GetService("Lighting")
-local Workspace = game:GetService("Workspace")
-local Camera = workspace.CurrentCamera
+local Jogadores = jogo:GetService("Jogadores")
+local RunService = jogo:GetService("ExecutarServiço")
+local UserInputService = jogo:GetService("Serviço de entrada do usuário")
+local CoreGui = jogo:GetService("CoreGui")
+local LocalPlayer = Jogadores.LocalPlayer
+local TweenService = jogo:GetService("Serviço Intermediário")
+local Iluminação = jogo:GetService("Iluminação")
+local Espaço de trabalho = jogo:GetService("Espaço de trabalho")
+local Câmera = espaço de trabalho.CurrentCamera
 
 -- ====================== CONFIGURAÇÕES ======================
-local Config = {
-    TeamCheck = true,
+local Configuração = {
+    Verificação de equipe = verdadeiro,
     Aimbot = {
-        Enabled = false,
+        Habilitado = falso,
         AimKey = Enum.UserInputType.MouseButton2,
-        AimlockMode = "Hold",
-        FOV = 200,
-        Smoothness = 0,
-        AimPart = "Head",
-        ShowFOV = true,
+        Modo Aimlock = "Segure",
+        Campo de visão = 200,
+        Suavidade = 0,
+        Parte de objetivo = "Cabeça",
+        MostrarFOV = verdadeiro,
         FOVColor = Color3.fromRGB(0, 255, 0),
-        VisibleCheck = false
+        Verificação Visível = falso
     },
-    Hitbox = { Enabled = false, ExpandFactor = 1.5 },
+    Hitbox = { Habilitado = falso, ExpandirFator = 1,5 },
     ESP = {
-        Enabled = false,
-        ShowName = true,
-        ShowDistance = true,
-        ShowHealth = true,
-        ShowWeapon = false,
+        Habilitado = falso,
+        MostrarNome = verdadeiro,
+        MostrarDistância = verdadeiro,
+        MostrarSaúde = verdadeiro,
+        MostrarArma = falso,
         TextColor = Color3.fromRGB(255, 255, 255),
-        Font = Enum.Font.GothamBold,
-        TextSize = 11,
-        HighlightEnabled = true,
+        Fonte = Enum.Font.GothamBold,
+        Tamanho do texto = 11,
+        DestaqueHabilitado = verdadeiro,
         HighlightColor = Color3.fromRGB(255, 0, 0),
-        HighlightTransparency = 0.5
+        DestacarTransparência = 0,5
     },
     AutoFarm = {
-        Enabled = false, Radius = 50,
-        Whitelist = {"Coin", "Gem", "Potion", "HealthPack"},
-        Blacklist = {"Trash"}
+        Habilitado = falso, Raio = 50,
+        Lista de permissões = {"Moeda", "Jóia", "Poção", "Pacote de Saúde"},
+        Lista negra = {"Lixo"}
     },
-    Speed = {
-        WalkEnabled = false, WalkSpeed = 16,
-        JumpEnabled = false, JumpForce = 150,
+    Velocidade = {
+        Caminhada habilitada = falso, Velocidade de caminhada = 16,
+        JumpHabilitado = falso, Força de salto = 150,
         WalkToggleKey = Enum.KeyCode.F5, JumpToggleKey = Enum.KeyCode.F6
     },
-    Fly = {
-        FlyEnabled = false, FlySpeed = 50,
+    Voar = {
+        FlyEnabled = falso, Velocidade de voo = 50,
         FlyMinSpeed = 10, FlyMaxSpeed = 500,
-        FlyToggleKey = Enum.KeyCode.F7, NoClipEnabled = false,
+        FlyToggleKey = Enum.KeyCode.F7, NoClipEnabled = falso,
         NoClipToggleKey = Enum.KeyCode.F8
     },
-    Visual = { FullBrightEnabled = false, FullBrightKey = Enum.KeyCode.F9 },
+    Visual = { FullBrightEnabled = falso, FullBrightKey = Enum.KeyCode.F9 },
     FreeCam = {
-        Enabled = false, ToggleKey = Enum.KeyCode.F4,
-        Speed = 50, SpeedStep = 10, MinSpeed = 10, MaxSpeed = 500,
-        Sensitivity = 0.5
+        Habilitado = falso, ToggleKey = Enum.KeyCode.F4,
+        Velocidade = 50, Passo de velocidade = 10, Velocidade mínima = 10, Velocidade máxima = 500,
+        Sensibilidade = 0,5
     },
     Radar = {
-        Enabled = false,
-        MaxDistance = 250,
-        FrostFilter = false,
+        Habilitado = falso,
+        Distância Máxima = 250,
+        Filtro de Gelo = falso,
         MinZoom = 80,
         MaxZoom = 600,
         ZoomStep = 25
@@ -92,7 +92,7 @@ local Config = {
     }
 }
 
--- ====================== TABELA DE BINDINGS PARA REBIND ======================
+-- Tabela de bindings para rebind
 local KeyBinds = {
     Menu = { Config.UI, "KeyToggleMenu" },
     AimbotToggle = { Config.UI, "KeyToggleAimbot" },
@@ -144,7 +144,6 @@ local resizeStartSize = nil
 local expandedParts = {}
 local ToggleUpdates = {}
 
--- Variáveis de rebind
 local rebindingKey = nil
 local rebindButton = nil
 
@@ -1033,7 +1032,6 @@ local function CreateMenu()
     Instance.new("UIStroke", tabBar).Color = Config.UI.BorderColor
     tabBar.UIStroke.Thickness = 1
 
-    -- Adicionada aba "Teclas"
     local tabs = {
         {name = "Aimbot", icon = "🎯"},
         {name = "ESP", icon = "👁️"},
@@ -1259,7 +1257,7 @@ local function CreateMenu()
     y = 5
     CreateToggle(speedPage, y, "⚡ WalkSpeed", Config.Speed, "WalkEnabled", function(val) SetWalkEnabled(val) end, "WalkEnabled")
     y = y + 40
-    CreateSlider(speedPage, y, "Velocidade", Config.Speed, "WalkSpeed", 1, 200, 1)
+    CreateSlider(speedPage, y, "Velocidade", Config.Speed, "WalkSpeed", 1, 1000, 1)  -- ALTERADO: máximo 1000
     y = y + 66
     CreateToggle(speedPage, y, "🦘 Pulo Explosivo", Config.Speed, "JumpEnabled", function(val) SetJumpEnabled(val) end, "JumpEnabled")
     y = y + 40
@@ -1448,7 +1446,6 @@ local function CreateMenu()
 
     -- Teclas (com suporte a rebind)
     inputBeganConn = UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
-        -- Captura rebind primeiro
         if rebindingKey then
             if input.UserInputType == Enum.UserInputType.Keyboard then
                 local bind = KeyBinds[rebindingKey]
@@ -1505,60 +1502,60 @@ local function CreateMenu()
         elseif input.KeyCode == Enum.KeyCode.Space then spaceHeld = true
         end
     end)
-    inputEndedConn = UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Config.Aimbot.AimKey then
-            holdingAimKey = false
-        elseif input.KeyCode == Enum.KeyCode.Space then spaceHeld = false
-        end
-    end)
-end
+    inputEndedConn = UserInputService.InputEnded:Connect(função(entrada)
+        se input.UserInputType == Config.Aimbot.AimKey então
+            holdingAimKey = falso
+        caso contrário input.KeyCode == Enum.KeyCode.Space então espaço retido = falso
+        fim
+    fim)
+fim
 
 -- ====================== INICIALIZAÇÃO ======================
-print("[FrostHub Ultra] Iniciando...")
-repeat task.wait() until LocalPlayer.Character
-repeat task.wait() until workspace.CurrentCamera
-CreateMenu()
-SaveOriginalLighting()
+imprimir("[FrostHub Ultra] Iniciando...")
+repetir tarefa.esperar() até LocalPlayer.Personagem
+repetir tarefa.esperar() até espaço de trabalho.CurrentCamera
+CriarMenu()
+SalvarIluminaçãoOriginal()
 
 fovUpdateConn = RunService.RenderStepped:Connect(UpdateFOVCircles)
 
-Players.PlayerRemoving:Connect(function(p)
+Jogadores.JogadorRemovendo:Conectar(função(p)
     cleanupPlayerESP(p)
-end)
+fim)
 
-LocalPlayer.CharacterAdded:Connect(function(char)
-    task.wait(0.1)
-    if Config.Speed.WalkEnabled then local hum = char:FindFirstChild("Humanoid"); if hum then ApplyWalk(hum) end; if not walkLoop then SetWalkEnabled(true) end end
-    if Config.Fly.FlyEnabled then StopFly(); StartFly() end
-    if Config.Fly.NoClipEnabled then StopNoClip(); StartNoClip() end
-    if Config.Aimbot.Enabled then StopAimbot(); StartAimbot() end
-    if Config.ESP.Enabled then StopESP(); StartESP() end
-    if Config.Radar.Enabled then 
+LocalPlayer.CharacterAdded:Conectar(função(char)
+    tarefa.esperar(0,1)
+    se Config.Speed.WalkEnabled entidade local hum = char:FindFirstChild("Humanoide"); se cantarolar então AplicarCaminhada(hum) fim; se não andarLoop então DefinirCaminhadaAtivada(verdadeiro) fim fim
+    se Config.Fly.FlyHabilitado para PararVoar(); IniciarVoar() fim
+    se Config.Fly.NoClipHabilitado para PararNoClip(); IniciarNoClip() fim
+    se Config.Aimbot.Habilitado para StopAimbot(); IniciarAimbot() fim
+    se Config.ESP.Habilitado no PararesP(); IniciarESP() fim
+    se Config.Radar.Habilitado então 
         StopRadar() 
-        StartRadar() 
-    end
-    if Config.FreeCam.Enabled and LocalPlayer.Character then
-        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root then root.Anchored = true; freezedRootPart = root end
-    end
-end)
+        IniciarRadar() 
+    fim
+    se Config.FreeCam.Habilitado e LocalPlayer.Personagem em
+        local root = LocalPlayer.Character:FindFirstChild("Parte Raiz Humanóide")
+        se raiz não raiz.Ancorado = verdejeiro; freezedRootPart = raiz fim
+    fim
+fim)
 
-RunService.Heartbeat:Connect(function()
-    if not Config.Speed.JumpEnabled or not spaceHeld then return end
+RunService.Heartbeat:Conectar(função()
+    se não Config.Speed.JumpHabilitado ou não espero retornar fim
     local char = LocalPlayer.Character
-    if not char then return end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+    se não char então retornar fim
+    local raiz = char:FindFirstChild("Parte Raiz Humanóide")
+    se não raiz então retornar fim
     root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Config.Speed.JumpForce, root.AssemblyLinearVelocity.Z)
-end)
+fim)
 
-LocalPlayer.PlayerRemoving:Connect(function()
-    StopAimbot(); StopESP(); StopAutoFarm(); StopHitbox(); DisableFreeCam(); StopRadar()
-    if walkLoop then walkLoop:Disconnect() end
+LocalPlayer.PlayerRemoving:Conectar(função()
+    StopAimbot(); StopESP(); StopAutoFarm(); StopHitbox(); DesabilitarFreeCam(); StopRadar()
+    se andarLoop então walkLoop:Desconectar() fim
     StopFly(); StopNoClip()
-    if fullBrightLoop then fullBrightLoop:Disconnect() end
-    if fovUpdateConn then fovUpdateConn:Disconnect() end
-    CleanupMenu()
-end)
+    se Loop Brilhante Completo até fullBrightLoop:Desconectar() fim
+    se fovUpdateConn então fovUpdateConn:Desconectar() fim
+    Menu de limpeza()
+fim)
 
-print("[FrostHub Ultra] Carregado! ❄️ (Fly original restaurado + Rebind de teclas)")
+imprimir("[FrostHub Ultra] Carregado! ❄️ (Voe original restaurado + Rebind de teclas + Velocidade máx. 1000)")
