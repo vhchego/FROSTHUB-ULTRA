@@ -1,7 +1,7 @@
 --[[
-    FROSTHUB ULTRA
-    FOV COM DRAWING + AIMBOT (XFROST) + ESP OTIMIZADO + INTERFACE COMPLETA + RADAR TATICO + WALLBANG CHECK
-    (LockOn removido | Fly ORIGINAL restaurado | Rebind de teclas adicionado | Velocidade max. 1000)
+    ❄️ FROSTHUB ULTRA ❄️
+    FOV COM DRAWING + AIMBOT (XFROST) + ESP OTIMIZADO + INTERFACE COMPLETA + RADAR TÁTICO + WALLBANG CHECK
+    (LockOn removido | Fly ORIGINAL restaurado | Rebind de teclas adicionado | Velocidade máx. 1000)
 ]]
 
 local Players = game:GetService("Players")
@@ -14,7 +14,7 @@ local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local Camera = workspace.CurrentCamera
 
--- ====================== CONFIGURACOES ======================
+-- ====================== CONFIGURAÇÕES ======================
 local Config = {
     TeamCheck = true,
     Aimbot = {
@@ -146,7 +146,7 @@ local ToggleUpdates = {}
 local rebindingKey = nil
 local rebindButton = nil
 
--- ====================== FUNCOES BASICAS ======================
+-- ====================== FUNÇÕES BÁSICAS ======================
 local function IsEnemy(player)
     if player == LocalPlayer then return false end
     local char = player.Character
@@ -159,7 +159,7 @@ local function IsEnemy(player)
     return true
 end
 
--- ====================== VERIFICACAO DE PAREDE ======================
+-- ====================== VERIFICAÇÃO DE PAREDE ======================
 local function IsTargetVisible(targetPart)
     if not targetPart then return false end
     local cam = Camera
@@ -240,7 +240,7 @@ local function GetBestAimbotTarget()
     return bestPart
 end
 
--- ====================== MOVIMENTACAO DO MOUSE ======================
+-- ====================== MOVIMENTAÇÃO DO MOUSE ======================
 local function moveMouseToTarget(targetPart)
     local cam = Camera
     if not cam then return end
@@ -485,7 +485,7 @@ function SetFullBrightEnabled(state)
     if ToggleUpdates["FullBright"] then ToggleUpdates["FullBright"]() end
 end
 
--- ====================== CAMERA LIVRE ======================
+-- ====================== CÂMERA LIVRE ======================
 local function EnableFreeCam()
     if Config.FreeCam.Enabled then return end
     Config.FreeCam.Enabled = true
@@ -633,7 +633,7 @@ local function StopHitbox()
     for _, player in ipairs(Players:GetPlayers()) do RestoreHitbox(player) end
 end
 
--- ====================== RADAR TATICO ======================
+-- ====================== RADAR TÁTICO ======================
 local radarActive = false
 local radarConnection = nil
 local radarViewportConn = nil
@@ -750,7 +750,7 @@ local function BuildRadar()
     local statusIcon = Drawing.new("Text")
     statusIcon.Size = 18; statusIcon.Center = false; statusIcon.Font = Drawing.Fonts.UI
     statusIcon.Position = Vector2.new(centerX - halfSize + 8, centerY + halfSize - 28)
-    statusIcon.Text = Config.Radar.FrostFilter and "Gelo" or "Fogo"
+    statusIcon.Text = Config.Radar.FrostFilter and "❄️" or "🔥"
     statusIcon.Color = Config.Radar.FrostFilter and Color3.fromRGB(0, 255, 200) or Color3.fromRGB(255, 100, 50)
     statusIcon.Visible = true
     table.insert(radarObjects, statusIcon)
@@ -760,7 +760,7 @@ local function BuildRadar()
     statusText.Size = 12; statusText.Center = false; statusText.Font = Drawing.Fonts.UI
     statusText.Color = Color3.fromRGB(160, 210, 255)
     statusText.Position = Vector2.new(centerX - halfSize + 32, centerY + halfSize - 25)
-    statusText.Text = Config.Radar.FrostFilter and "Filtro: ON" or "Filtro: OFF"
+    statusText.Text = Config.Radar.FrostFilter and "❄️ Filtro: ON" or "🔥 Filtro: OFF"
     statusText.Visible = true
     table.insert(radarObjects, statusText)
     radarObjects.statusText = statusText
@@ -769,7 +769,7 @@ local function BuildRadar()
     zoomText.Size = 11; zoomText.Center = false; zoomText.Font = Drawing.Fonts.UI
     zoomText.Color = Color3.fromRGB(100, 200, 255)
     zoomText.Position = Vector2.new(centerX - halfSize + 8, centerY - halfSize + 8)
-    zoomText.Text = "Zoom " .. math.floor(zoomLevel) .. "m"
+    zoomText.Text = "🔍 " .. math.floor(zoomLevel) .. "m"
     zoomText.Visible = true
     table.insert(radarObjects, zoomText)
     radarObjects.zoomText = zoomText
@@ -798,14 +798,14 @@ local function UpdateRadar()
     end
 
     if radarObjects.statusText then
-        radarObjects.statusText.Text = Config.Radar.FrostFilter and "Filtro: ON" or "Filtro: OFF"
+        radarObjects.statusText.Text = Config.Radar.FrostFilter and "❄️ Filtro: ON" or "🔥 Filtro: OFF"
     end
     if radarObjects.statusIcon then
-        radarObjects.statusIcon.Text = Config.Radar.FrostFilter and "Gelo" or "Fogo"
+        radarObjects.statusIcon.Text = Config.Radar.FrostFilter and "❄️" or "🔥"
         radarObjects.statusIcon.Color = Config.Radar.FrostFilter and Color3.fromRGB(0, 255, 200) or Color3.fromRGB(255, 100, 50)
     end
     if radarObjects.zoomText then
-        radarObjects.zoomText.Text = "Zoom " .. math.floor(zoomLevel) .. "m"
+        radarObjects.zoomText.Text = "🔍 " .. math.floor(zoomLevel) .. "m"
     end
 
     local cam = Camera
@@ -915,7 +915,7 @@ local function StartRadar()
         radarViewportConn = Camera:GetPropertyChangedSignal("ViewportSize"):Connect(BuildRadar)
     end
     if ToggleUpdates["Radar"] then ToggleUpdates["Radar"]() end
-    print("[Radar] ATIVADO")
+    print("[🗺️ Radar] ATIVADO")
 end
 
 local function StopRadar()
@@ -937,7 +937,7 @@ local function StopRadar()
     playerDots = {}
     playerLabels = {}
     if ToggleUpdates["Radar"] then ToggleUpdates["Radar"]() end
-    print("[Radar] DESATIVADO")
+    print("[🗺️ Radar] DESATIVADO")
 end
 
 local function ToggleRadar()
@@ -984,7 +984,7 @@ local function CreateMenu()
     titleText.Size = UDim2.new(1, -60, 1, 0)
     titleText.Position = UDim2.new(0, 10, 0, 0)
     titleText.BackgroundTransparency = 1
-    titleText.Text = "FROSTHUB ULTRA"
+    titleText.Text = "❄️ FROSTHUB ULTRA"
     titleText.TextColor3 = Config.UI.TextColor
     titleText.Font = Enum.Font.GothamBold
     titleText.TextSize = 18
@@ -1032,15 +1032,15 @@ local function CreateMenu()
     tabBar.UIStroke.Thickness = 1
 
     local tabs = {
-        {name = "Aimbot", icon = "A"},
-        {name = "ESP", icon = "E"},
-        {name = "Farm", icon = "F"},
-        {name = "Speed", icon = "S"},
-        {name = "Fly", icon = "V"},
-        {name = "Visual", icon = "L"},
-        {name = "Radar", icon = "R"},
-        {name = "Teclas", icon = "T"},
-        {name = "Info", icon = "I"}
+        {name = "Aimbot", icon = "🎯"},
+        {name = "ESP", icon = "👁️"},
+        {name = "Farm", icon = "🧲"},
+        {name = "Speed", icon = "⚡"},
+        {name = "Fly", icon = "🕊️"},
+        {name = "Visual", icon = "☀️"},
+        {name = "Radar", icon = "🗺️"},
+        {name = "Teclas", icon = "⌨️"},
+        {name = "Info", icon = "❄️"}
     }
     local tabButtons = {}
     local tabPages = {}
@@ -1215,84 +1215,84 @@ local function CreateMenu()
     -- ========== ABA AIMBOT ==========
     local aimPage = tabPages["Aimbot"]
     local y = 5
-    CreateToggle(aimPage, y, "Aimbot", Config.Aimbot, "Enabled", function(val) if val then StartAimbot() else StopAimbot() end end, "Aimbot")
+    CreateToggle(aimPage, y, "🎯 Aimbot", Config.Aimbot, "Enabled", function(val) if val then StartAimbot() else StopAimbot() end end, "Aimbot")
     y = y + 40
     CreateSlider(aimPage, y, "FOV (Tamanho)", Config.Aimbot, "FOV", 50, 400, 10, nil)
     y = y + 66
-    CreateSlider(aimPage, y, "Suavidade", Config.Aimbot, "Smoothness", 0, 1, 0.05)
+    CreateSlider(aimPage, y, "🎯 Suavidade", Config.Aimbot, "Smoothness", 0, 1, 0.05)
     y = y + 66
-    CreateToggle(aimPage, y, "Mostrar FOV", Config.Aimbot, "ShowFOV", nil, "AimbotFOV")
+    CreateToggle(aimPage, y, "⭕ Mostrar FOV", Config.Aimbot, "ShowFOV", nil, "AimbotFOV")
     y = y + 40
-    CreateToggle(aimPage, y, "Visivel Apenas", Config.Aimbot, "VisibleCheck", nil)
+    CreateToggle(aimPage, y, "👁️ Visível Apenas", Config.Aimbot, "VisibleCheck", nil)
     y = y + 40
-    CreateToggle(aimPage, y, "Team Check", Config, "TeamCheck")
+    CreateToggle(aimPage, y, "🛡️ Team Check", Config, "TeamCheck")
     y = y + 40
-    CreateToggle(aimPage, y, "Hitbox Expander", Config.Hitbox, "Enabled", function(val) if val then StartHitbox() else StopHitbox() end end)
+    CreateToggle(aimPage, y, "📦 Hitbox Expander", Config.Hitbox, "Enabled", function(val) if val then StartHitbox() else StopHitbox() end end)
     y = y + 40
     CreateSlider(aimPage, y, "Fator Hitbox", Config.Hitbox, "ExpandFactor", 1, 5, 0.1)
 
     -- ========== ABA ESP ==========
     local espPage = tabPages["ESP"]
     y = 5
-    CreateToggle(espPage, y, "ESP", Config.ESP, "Enabled", function(val) if val then StartESP() else StopESP() end end, "ESP")
+    CreateToggle(espPage, y, "👁️ ESP", Config.ESP, "Enabled", function(val) if val then StartESP() else StopESP() end end, "ESP")
     y = y + 40
-    CreateToggle(espPage, y, "Highlight", Config.ESP, "HighlightEnabled")
+    CreateToggle(espPage, y, "✨ Highlight", Config.ESP, "HighlightEnabled")
     y = y + 40
-    CreateToggle(espPage, y, "Nome", Config.ESP, "ShowName")
+    CreateToggle(espPage, y, "📛 Nome", Config.ESP, "ShowName")
     y = y + 40
-    CreateToggle(espPage, y, "Distancia", Config.ESP, "ShowDistance")
+    CreateToggle(espPage, y, "📏 Distância", Config.ESP, "ShowDistance")
     y = y + 40
-    CreateToggle(espPage, y, "Vida", Config.ESP, "ShowHealth")
+    CreateToggle(espPage, y, "❤️ Vida", Config.ESP, "ShowHealth")
 
     -- ========== ABA AUTO FARM ==========
     local farmPage = tabPages["Farm"]
     y = 5
-    CreateToggle(farmPage, y, "Auto Farm", Config.AutoFarm, "Enabled", function(val) if val then StartAutoFarm() else StopAutoFarm() end end)
+    CreateToggle(farmPage, y, "🧲 Auto Farm", Config.AutoFarm, "Enabled", function(val) if val then StartAutoFarm() else StopAutoFarm() end end)
     y = y + 40
     CreateSlider(farmPage, y, "Raio", Config.AutoFarm, "Radius", 10, 200, 5)
 
     -- ========== ABA SPEED ==========
     local speedPage = tabPages["Speed"]
     y = 5
-    CreateToggle(speedPage, y, "WalkSpeed", Config.Speed, "WalkEnabled", function(val) SetWalkEnabled(val) end, "WalkEnabled")
+    CreateToggle(speedPage, y, "⚡ WalkSpeed", Config.Speed, "WalkEnabled", function(val) SetWalkEnabled(val) end, "WalkEnabled")
     y = y + 40
-    CreateSlider(speedPage, y, "Velocidade", Config.Speed, "WalkSpeed", 1, 1000, 1)  -- maximo 1000
+    CreateSlider(speedPage, y, "Velocidade", Config.Speed, "WalkSpeed", 1, 1000, 1)  -- máximo 1000
     y = y + 66
-    CreateToggle(speedPage, y, "Pulo Explosivo", Config.Speed, "JumpEnabled", function(val) SetJumpEnabled(val) end, "JumpEnabled")
+    CreateToggle(speedPage, y, "🦘 Pulo Explosivo", Config.Speed, "JumpEnabled", function(val) SetJumpEnabled(val) end, "JumpEnabled")
     y = y + 40
-    CreateSlider(speedPage, y, "Forca do Pulo", Config.Speed, "JumpForce", 10, 1000, 10)
+    CreateSlider(speedPage, y, "Força do Pulo", Config.Speed, "JumpForce", 10, 1000, 10)
 
     -- ========== ABA FLY ==========
     local flyPage = tabPages["Fly"]
     y = 5
-    CreateToggle(flyPage, y, "Fly", Config.Fly, "FlyEnabled", function(val) if val then StartFly() else StopFly() end end, "FlyEnabled")
+    CreateToggle(flyPage, y, "🕊️ Fly", Config.Fly, "FlyEnabled", function(val) if val then StartFly() else StopFly() end end, "FlyEnabled")
     y = y + 40
     CreateSlider(flyPage, y, "Velocidade Fly", Config.Fly, "FlySpeed", Config.Fly.FlyMinSpeed, Config.Fly.FlyMaxSpeed, 1)
     y = y + 66
-    CreateToggle(flyPage, y, "NoClip", Config.Fly, "NoClipEnabled", function(val) if val then StartNoClip() else StopNoClip() end end, "NoClipEnabled")
+    CreateToggle(flyPage, y, "🚪 NoClip", Config.Fly, "NoClipEnabled", function(val) if val then StartNoClip() else StopNoClip() end end, "NoClipEnabled")
 
     -- ========== ABA VISUAL ==========
     local visualPage = tabPages["Visual"]
     y = 5
-    CreateToggle(visualPage, y, "Full Bright", Config.Visual, "FullBrightEnabled", function(val) SetFullBrightEnabled(val) end, "FullBright")
+    CreateToggle(visualPage, y, "☀️ Full Bright", Config.Visual, "FullBrightEnabled", function(val) SetFullBrightEnabled(val) end, "FullBright")
 
-    -- ========== ABA RADAR ==========
+    -- ========== 🗺️ ABA RADAR ==========
     local radarPage = tabPages["Radar"]
     y = 5
-    CreateToggle(radarPage, y, "Radar Tatico", Config.Radar, "Enabled", function(val) 
+    CreateToggle(radarPage, y, "🗺️ Radar Tático", Config.Radar, "Enabled", function(val) 
         if val then StartRadar() else StopRadar() end 
     end, "Radar")
     y = y + 40
-    CreateSlider(radarPage, y, "Alcance (Zoom)", Config.Radar, "MaxDistance", 80, 600, 10, function(val)
+    CreateSlider(radarPage, y, "🔍 Alcance (Zoom)", Config.Radar, "MaxDistance", 80, 600, 10, function(val)
         zoomLevel = val
         if radarObjects.zoomText then
-            radarObjects.zoomText.Text = "Zoom " .. math.floor(zoomLevel) .. "m"
+            radarObjects.zoomText.Text = "🔍 " .. math.floor(zoomLevel) .. "m"
         end
     end)
     y = y + 66
-    CreateToggle(radarPage, y, "Filtro Gelo", Config.Radar, "FrostFilter", nil, "RadarFilter")
+    CreateToggle(radarPage, y, "❄️ Filtro Gélido", Config.Radar, "FrostFilter", nil, "RadarFilter")
 
-    -- ========== ABA TECLAS (REBIND) ==========
+    -- ========== ⌨️ ABA TECLAS (REBIND) ==========
     local keysPage = tabPages["Teclas"]
     local keyY = 5
 
@@ -1357,16 +1357,16 @@ local function CreateMenu()
     createKeyBindRow("NoClip", "NoClip (F8)")
     createKeyBindRow("FullBright", "Full Bright (F9)")
 
-    -- ========== ABA INFO ==========
+    -- ========== ❄️ ABA INFO ==========
     local infoPage = tabPages["Info"]
     local infoLabel = Instance.new("TextLabel")
     infoLabel.Size = UDim2.new(1, -16, 1, -16)
     infoLabel.Position = UDim2.new(0, 8, 0, 8)
     infoLabel.BackgroundTransparency = 1
     infoLabel.Text = [[
-    FROSTHUB ULTRA
+    ❄️ FROSTHUB ULTRA ❄️
     
-    ATALHOS (reconfiguraveis na aba "Teclas"):
+    🎮 ATALHOS (reconfiguráveis na aba "Teclas"):
     [F1] Menu
     [F2] Aimbot
     [F3] ESP
@@ -1376,14 +1376,14 @@ local function CreateMenu()
     [F7] Fly
     [F8] NoClip
     [F9] Full Bright
-    [F10] Radar Tatico
-    [Botao Dir.] Aimbot (Hold)
+    [F10] Radar Tático
+    [Botão Dir.] Aimbot (Hold)
     
-    AIMBOT BRUTO COM WALLBANG CHECK
-    RADAR TATICO COM NOME, HP E DISTANCIA
-    VISIVEL APENAS (WALLBANG)
-    AIMBOT BASEADO NO XFROST (RIVALS)
-    SMOOTHNESS PADRAO = 0 (INSTANTANEO)
+    🔒 AIMBOT BRUTO COM WALLBANG CHECK
+    🗺️ RADAR TÁTICO COM NOME, HP E DISTÂNCIA
+    🧱 VISÍVEL APENAS (WALLBANG)
+    🔫 AIMBOT BASEADO NO XFROST (RIVALS)
+    ⚡ SMOOTHNESS PADRÃO = 0 (INSTANTÂNEO)
     ]]
     infoLabel.TextColor3 = Config.UI.SubTextColor
     infoLabel.Font = Enum.Font.Gotham
@@ -1509,7 +1509,7 @@ local function CreateMenu()
     end)
 end
 
--- ====================== INICIALIZACAO ======================
+-- ====================== INICIALIZAÇÃO ======================
 print("[FrostHub Ultra] Iniciando...")
 repeat task.wait() until LocalPlayer.Character
 repeat task.wait() until workspace.CurrentCamera
@@ -1557,4 +1557,4 @@ Players.PlayerRemoving:Connect(function()
     CleanupMenu()
 end)
 
-print("[FrostHub Ultra] Carregado! (Fly original restaurado + Rebind de teclas + Velocidade max. 1000)")
+print("[FrostHub Ultra] Carregado! ❄️ (Fly original restaurado + Rebind de teclas + Velocidade máx. 1000)")
