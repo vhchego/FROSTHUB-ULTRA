@@ -1,7 +1,7 @@
 --[[
     ❄️ FROSTHUB ULTRA ❄️
     FOV COM DRAWING + AIMBOT (XFROST) + ESP OTIMIZADO + INTERFACE COMPLETA + RADAR TÁTICO + WALLBANG CHECK
-    (LockOn removido | Fly ORIGINAL restaurado | Rebind de teclas adicionado | Velocidade máx. 1000 | Execução infinita)
+    (LockOn removido | Fly ORIGINAL restaurado | Rebind de teclas adicionado | Velocidade máx. 1000 | Watchdog + Keep-alive)
 ]]
 
 local Players = game:GetService("Players")
@@ -146,6 +146,10 @@ local ToggleUpdates = {}
 local rebindingKey = nil
 local rebindButton = nil
 
+-- Indicador flutuante
+local indicatorGui = nil
+local indicatorButton = nil
+
 -- ====================== FUNÇÕES BÁSICAS ======================
 local function IsEnemy(player)
     if player == LocalPlayer then return false end
@@ -159,7 +163,6 @@ local function IsEnemy(player)
     return true
 end
 
--- ====================== VERIFICAÇÃO DE PAREDE ======================
 local function IsTargetVisible(targetPart)
     if not targetPart then return false end
     local cam = Camera
@@ -175,15 +178,9 @@ local function IsTargetVisible(targetPart)
     params.IgnoreWater = true
 
     local result = Workspace:Raycast(startPos, direction * distance, params)
-    if not result then
-        return true
-    end
-
+    if not result then return true end
     local hitChar = result.Instance:FindFirstAncestorOfClass("Model")
-    if hitChar == targetPart.Parent then
-        return true
-    end
-
+    if hitChar == targetPart.Parent then return true end
     return false
 end
 
@@ -223,9 +220,7 @@ local function GetBestAimbotTarget()
         local part = char:FindFirstChild(Config.Aimbot.AimPart)
         if not part then continue end
 
-        if Config.Aimbot.VisibleCheck and not IsTargetVisible(part) then
-            continue
-        end
+        if Config.Aimbot.VisibleCheck and not IsTargetVisible(part) then continue end
 
         local screenPos, onScreen = cam:WorldToViewportPoint(part.Position)
         if not onScreen then continue end
@@ -236,11 +231,9 @@ local function GetBestAimbotTarget()
             bestPart = part
         end
     end
-
     return bestPart
 end
 
--- ====================== MOVIMENTAÇÃO DO MOUSE ======================
 local function moveMouseToTarget(targetPart)
     local cam = Camera
     if not cam then return end
@@ -269,7 +262,6 @@ local function moveMouseToTarget(targetPart)
 
     local moveX = delta.X * adjustedSmooth
     local moveY = delta.Y * adjustedSmooth
-
     if mousemoverel then
         mousemoverel(moveX, moveY)
     elseif syn and syn.input then
@@ -281,11 +273,8 @@ local function AimbotLoop()
     if Config.FreeCam.Enabled then return end
     if not Config.Aimbot.Enabled then return end
     if not holdingAimKey then return end
-
     local targetPart = GetBestAimbotTarget()
-    if targetPart then
-        moveMouseToTarget(targetPart)
-    end
+    if targetPart then moveMouseToTarget(targetPart) end
 end
 
 -- ====================== FOV CIRCLES ======================
@@ -300,9 +289,7 @@ local function UpdateFOVCircles()
         fovCircleAimbot.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
         fovCircleAimbot.Visible = true
     else
-        if fovCircleAimbot then
-            fovCircleAimbot.Visible = false
-        end
+        if fovCircleAimbot then fovCircleAimbot.Visible = false end
     end
 end
 
@@ -330,7 +317,6 @@ local function espUpdateLoop()
                 if espData[player] then cleanupPlayerESP(player) end
                 continue
             end
-
             local char = player.Character
             if not char then
                 if espData[player] then
@@ -339,7 +325,6 @@ local function espUpdateLoop()
                 end
                 continue
             end
-
             local head = char:FindFirstChild("Head")
             if not head then
                 if espData[player] then
@@ -348,7 +333,6 @@ local function espUpdateLoop()
                 end
                 continue
             end
-
             if not espData[player] then espData[player] = {} end
             local data = espData[player]
 
@@ -561,7 +545,7 @@ function SetJumpEnabled(state)
     if ToggleUpdates["JumpEnabled"] then ToggleUpdates["JumpEnabled"]() end
 end
 
--- ====================== FLY + NOCLIP (ORIGINAL) ======================
+-- ====================== FLY + NOCLIP ======================
 function StartFly()
     if flyLoop then return end
     local char = LocalPlayer.Character; if not char then return end
@@ -915,21 +899,15 @@ local function StartRadar()
         radarViewportConn = Camera:GetPropertyChangedSignal("ViewportSize"):Connect(BuildRadar)
     end
     if ToggleUpdates["Radar"] then ToggleUpdates["Radar"]() end
-    print("[🗺️ Radar] ATIVADO")
+    print("[Radar] ATIVADO")
 end
 
 local function StopRadar()
     if not radarActive then return end
     radarActive = false
     Config.Radar.Enabled = false
-    if radarConnection then
-        radarConnection:Disconnect()
-        radarConnection = nil
-    end
-    if radarViewportConn then
-        radarViewportConn:Disconnect()
-        radarViewportConn = nil
-    end
+    if radarConnection then radarConnection:Disconnect(); radarConnection = nil end
+    if radarViewportConn then radarViewportConn:Disconnect(); radarViewportConn = nil end
     for _, obj in pairs(radarObjects) do SafeRemove(obj) end
     for _, dot in pairs(playerDots) do SafeRemove(dot) end
     for _, lbl in pairs(playerLabels) do SafeRemove(lbl) end
@@ -937,18 +915,14 @@ local function StopRadar()
     playerDots = {}
     playerLabels = {}
     if ToggleUpdates["Radar"] then ToggleUpdates["Radar"]() end
-    print("[🗺️ Radar] DESATIVADO")
+    print("[Radar] DESATIVADO")
 end
 
 local function ToggleRadar()
-    if radarActive then
-        StopRadar()
-    else
-        StartRadar()
-    end
+    if radarActive then StopRadar() else StartRadar() end
 end
 
--- ====================== INTERFACE COMPLETA (COM REBIND) ======================
+-- ====================== INTERFACE COMPLETA ======================
 local function CleanupMenu()
     if inputBeganConn then inputBeganConn:Disconnect(); inputBeganConn = nil end
     if inputEndedConn then inputEndedConn:Disconnect(); inputEndedConn = nil end
@@ -1004,7 +978,10 @@ local function CreateMenu()
     Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 6)
     closeBtn.MouseEnter:Connect(function() TweenService:Create(closeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 50, 50)}):Play() end)
     closeBtn.MouseLeave:Connect(function() TweenService:Create(closeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 40, 60)}):Play() end)
-    closeBtn.MouseButton1Click:Connect(function() Config.UI.MenuEnabled = false; menuScreenGui.Enabled = false end)
+    closeBtn.MouseButton1Click:Connect(function()
+        Config.UI.MenuEnabled = false
+        menuScreenGui.Enabled = false
+    end)
 
     local minimizeBtn = Instance.new("TextButton")
     minimizeBtn.Size = UDim2.new(0, 30, 0, 30)
@@ -1019,7 +996,9 @@ local function CreateMenu()
     Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 6)
     minimizeBtn.MouseEnter:Connect(function() TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60, 60, 80)}):Play() end)
     minimizeBtn.MouseLeave:Connect(function() TweenService:Create(minimizeBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 40, 60)}):Play() end)
-    minimizeBtn.MouseButton1Click:Connect(function() mainFrame.Visible = false end)
+    minimizeBtn.MouseButton1Click:Connect(function()
+        menuScreenGui.Enabled = false
+    end)
 
     local tabBar = Instance.new("Frame")
     tabBar.Size = UDim2.new(1, -24, 0, 36)
@@ -1279,8 +1258,8 @@ local function CreateMenu()
     -- ========== 🗺️ ABA RADAR ==========
     local radarPage = tabPages["Radar"]
     y = 5
-    CreateToggle(radarPage, y, "🗺️ Radar Tático", Config.Radar, "Enabled", function(val) 
-        if val then StartRadar() else StopRadar() end 
+    CreateToggle(radarPage, y, "🗺️ Radar Tático", Config.Radar, "Enabled", function(val)
+        if val then StartRadar() else StopRadar() end
     end, "Radar")
     y = y + 40
     CreateSlider(radarPage, y, "🔍 Alcance (Zoom)", Config.Radar, "MaxDistance", 80, 600, 10, function(val)
@@ -1509,11 +1488,110 @@ local function CreateMenu()
     end)
 end
 
+-- ====================== INDICADOR FLUTUANTE ======================
+local function CreateIndicator()
+    indicatorGui = Instance.new("ScreenGui")
+    indicatorGui.Name = "FrostHubIndicator"
+    indicatorGui.ResetOnSpawn = false
+    indicatorGui.Parent = CoreGui
+    indicatorGui.Enabled = true
+
+    indicatorButton = Instance.new("TextButton")
+    indicatorButton.Size = UDim2.new(0, 50, 0, 50)
+    indicatorButton.Position = UDim2.new(1, -60, 0.5, -25)
+    indicatorButton.BackgroundColor3 = Color3.fromRGB(0, 180, 255)
+    indicatorButton.Text = "FH"
+    indicatorButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    indicatorButton.Font = Enum.Font.GothamBold
+    indicatorButton.TextSize = 18
+    indicatorButton.AutoButtonColor = false
+    indicatorButton.Parent = indicatorGui
+    Instance.new("UICorner", indicatorButton).CornerRadius = UDim.new(1, 0)
+
+    indicatorButton.MouseButton1Click:Connect(function()
+        if menuScreenGui then
+            menuScreenGui.Enabled = true
+            if mainFrame then
+                mainFrame.Visible = true
+            end
+        else
+            CreateMenu()
+        end
+    end)
+end
+
+-- ====================== NOTIFICAÇÃO DE BOAS-VINDAS ======================
+local function ShowWelcomeNotification()
+    local notifGui = Instance.new("ScreenGui")
+    notifGui.Name = "FrostHubWelcome"
+    notifGui.ResetOnSpawn = false
+    notifGui.Parent = CoreGui
+    notifGui.Enabled = true
+
+    local notifFrame = Instance.new("Frame")
+    notifFrame.Size = UDim2.new(0, 300, 0, 60)
+    notifFrame.Position = UDim2.new(1, -20, 0, 10)
+    notifFrame.BackgroundColor3 = Color3.fromRGB(8, 12, 20)
+    notifFrame.BorderSizePixel = 0
+    notifFrame.Parent = notifGui
+    notifFrame.AnchorPoint = Vector2.new(0, 0)
+    Instance.new("UICorner", notifFrame).CornerRadius = UDim.new(0, 12)
+    Instance.new("UIStroke", notifFrame).Color = Color3.fromRGB(0, 180, 255)
+    notifFrame.UIStroke.Thickness = 1.5
+
+    local iconLabel = Instance.new("TextLabel")
+    iconLabel.Size = UDim2.new(0, 40, 1, 0)
+    iconLabel.Position = UDim2.new(0, 5, 0, 0)
+    iconLabel.BackgroundTransparency = 1
+    iconLabel.Text = "❄️"
+    iconLabel.Font = Enum.Font.GothamBold
+    iconLabel.TextSize = 28
+    iconLabel.Parent = notifFrame
+
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -50, 0, 20)
+    titleLabel.Position = UDim2.new(0, 50, 0, 8)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "Bem-vindo!"
+    titleLabel.TextColor3 = Color3.fromRGB(220, 240, 255)
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextSize = 16
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Parent = notifFrame
+
+    local msgLabel = Instance.new("TextLabel")
+    msgLabel.Size = UDim2.new(1, -50, 0, 20)
+    msgLabel.Position = UDim2.new(0, 50, 0, 32)
+    msgLabel.BackgroundTransparency = 1
+    msgLabel.Text = "FrostHub Ultra carregado com sucesso!"
+    msgLabel.TextColor3 = Color3.fromRGB(140, 180, 210)
+    msgLabel.Font = Enum.Font.Gotham
+    msgLabel.TextSize = 12
+    msgLabel.TextXAlignment = Enum.TextXAlignment.Left
+    msgLabel.Parent = notifFrame
+
+    notifFrame.Position = UDim2.new(1, -20, 0, 10)
+    TweenService:Create(notifFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+        Position = UDim2.new(1, -320, 0, 10)
+    }):Play()
+
+    task.spawn(function()
+        task.wait(4)
+        TweenService:Create(notifFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Position = UDim2.new(1, -20, 0, 10)
+        }):Play()
+        task.wait(0.3)
+        notifGui:Destroy()
+    end)
+end
+
 -- ====================== INICIALIZAÇÃO ======================
 print("[FrostHub Ultra] Iniciando...")
 repeat task.wait() until LocalPlayer.Character
 repeat task.wait() until workspace.CurrentCamera
 CreateMenu()
+CreateIndicator()
+ShowWelcomeNotification()
 SaveOriginalLighting()
 
 fovUpdateConn = RunService.RenderStepped:Connect(UpdateFOVCircles)
@@ -1529,10 +1607,7 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     if Config.Fly.NoClipEnabled then StopNoClip(); StartNoClip() end
     if Config.Aimbot.Enabled then StopAimbot(); StartAimbot() end
     if Config.ESP.Enabled then StopESP(); StartESP() end
-    if Config.Radar.Enabled then 
-        StopRadar() 
-        StartRadar() 
-    end
+    if Config.Radar.Enabled then StopRadar(); StartRadar() end
     if Config.FreeCam.Enabled and LocalPlayer.Character then
         local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
         if root then root.Anchored = true; freezedRootPart = root end
@@ -1544,23 +1619,57 @@ RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+    se não raiz então retornar fim
     root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Config.Speed.JumpForce, root.AssemblyLinearVelocity.Z)
-end)
+fim)
 
-Players.PlayerRemoving:Connect(function()
-    StopAimbot(); StopESP(); StopAutoFarm(); StopHitbox(); DisableFreeCam(); StopRadar()
-    if walkLoop then walkLoop:Disconnect() end
+Jogadores.JogadorRemovendo:Conectar(função()
+    StopAimbot(); StopESP(); StopAutoFarm(); StopHitbox(); DesabilitarFreeCam(); StopRadar()
+    se andarLoop então walkLoop:Desconectar() fim
     StopFly(); StopNoClip()
-    if fullBrightLoop then fullBrightLoop:Disconnect() end
-    if fovUpdateConn then fovUpdateConn:Disconnect() end
-    CleanupMenu()
-end)
+    se Loop Brilhante Completo então fullBrightLoop:Desconectar() fim
+    se fovUpdateConn então fovUpdateConn:Desconectar() fim
+    Menu de limpeza()
+fim)
 
-print("[FrostHub Ultra] Carregado! ❄️ (Fly original restaurado + Rebind de teclas + Velocidade máx. 1000)")
+imprimir("[FrostHub Ultra] Carregado! ❄️")
 
--- ====================== KEEP ALIVE INFINITO ======================
--- Mantém o script rodando para sempre (evita encerramento prematuro)
-while true do
-    task.wait(60)
-end
+-- ====================== WATCHDOG + KEEP-ALIVE DEFINITIVO ======================
+-- Mantém um tópico principal viva para sempre
+tarefa.spawn(função()
+    enquanto verdadeiro fazer
+        tarefa.esperar(60)
+    fim
+fim)
+
+-- RenderStepped vazio para manter ativo
+RunService.RenderStepped:Conectar(função() fim)
+
+-- Watchdog que verifica e reinicia sistemas a cada 1 segundo
+tarefa.spawn(função()
+    enquanto verdadeiro fazer
+        tarefa.esperar(1)
+        pcall(função()
+            se Config.Aimbot.Habilitado e não aimbotConexão então
+                imprimir("[Cão de guarda] Reiniciando Aimbot...")
+                IniciarAimbot()
+            fim
+            se Config.ESP.Habilitado e não espLoopConn então
+                imprimir("[Watchdog] Reiniciando ESP...")
+                IniciarESP()
+            fim
+            se Config.Radar.Habilitado e não conexão de radar então
+                imprimir("[Watchdog] Reiniciando Radar...")
+                IniciarRadar()
+            fim
+            se Config.Fly.FlyHabilitado e não flyLoop então
+                imprimir("[Cão de guarda] Reiniciando Fly...")
+                IniciarVoar()
+            fim
+            se Config.Speed.WalkEnabled e não andarLoop então
+                imprimir("[Watchdog] Reiniciando WalkSpeed...")
+                DefinirCaminhadaAtivada(verdadeiro)
+            fim
+        fim)
+    fim
+fim)
