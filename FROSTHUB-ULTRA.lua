@@ -1619,57 +1619,57 @@ RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     if not char then return end
     local root = char:FindFirstChild("HumanoidRootPart")
-    se não raiz então retornar fim
+    if not root then return end
     root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, Config.Speed.JumpForce, root.AssemblyLinearVelocity.Z)
-fim)
+end)
 
-Jogadores.JogadorRemovendo:Conectar(função()
-    StopAimbot(); StopESP(); StopAutoFarm(); StopHitbox(); DesabilitarFreeCam(); StopRadar()
-    se andarLoop então walkLoop:Desconectar() fim
+Players.PlayerRemoving:Connect(function()
+    StopAimbot(); StopESP(); StopAutoFarm(); StopHitbox(); DisableFreeCam(); StopRadar()
+    if walkLoop then walkLoop:Disconnect() end
     StopFly(); StopNoClip()
-    se Loop Brilhante Completo então fullBrightLoop:Desconectar() fim
-    se fovUpdateConn então fovUpdateConn:Desconectar() fim
-    Menu de limpeza()
-fim)
+    if fullBrightLoop then fullBrightLoop:Disconnect() end
+    if fovUpdateConn then fovUpdateConn:Disconnect() end
+    CleanupMenu()
+end)
 
-imprimir("[FrostHub Ultra] Carregado! ❄️")
+print("[FrostHub Ultra] Carregado! ❄️")
 
 -- ====================== WATCHDOG + KEEP-ALIVE DEFINITIVO ======================
--- Mantém um tópico principal viva para sempre
-tarefa.spawn(função()
-    enquanto verdadeiro fazer
-        tarefa.esperar(60)
-    fim
-fim)
+-- Mantém a thread principal viva para sempre
+task.spawn(function()
+    while true do
+        task.wait(60)
+    end
+end)
 
 -- RenderStepped vazio para manter ativo
-RunService.RenderStepped:Conectar(função() fim)
+RunService.RenderStepped:Connect(function() end)
 
 -- Watchdog que verifica e reinicia sistemas a cada 1 segundo
-tarefa.spawn(função()
-    enquanto verdadeiro fazer
-        tarefa.esperar(1)
-        pcall(função()
-            se Config.Aimbot.Habilitado e não aimbotConexão então
-                imprimir("[Cão de guarda] Reiniciando Aimbot...")
-                IniciarAimbot()
-            fim
-            se Config.ESP.Habilitado e não espLoopConn então
-                imprimir("[Watchdog] Reiniciando ESP...")
-                IniciarESP()
-            fim
-            se Config.Radar.Habilitado e não conexão de radar então
-                imprimir("[Watchdog] Reiniciando Radar...")
-                IniciarRadar()
-            fim
-            se Config.Fly.FlyHabilitado e não flyLoop então
-                imprimir("[Cão de guarda] Reiniciando Fly...")
-                IniciarVoar()
-            fim
-            se Config.Speed.WalkEnabled e não andarLoop então
-                imprimir("[Watchdog] Reiniciando WalkSpeed...")
-                DefinirCaminhadaAtivada(verdadeiro)
-            fim
-        fim)
-    fim
-fim)
+task.spawn(function()
+    while true do
+        task.wait(1)
+        pcall(function()
+            if Config.Aimbot.Enabled and not aimbotConnection then
+                print("[Watchdog] Reiniciando Aimbot...")
+                StartAimbot()
+            end
+            if Config.ESP.Enabled and not espLoopConn then
+                print("[Watchdog] Reiniciando ESP...")
+                StartESP()
+            end
+            if Config.Radar.Enabled and not radarConnection then
+                print("[Watchdog] Reiniciando Radar...")
+                StartRadar()
+            end
+            if Config.Fly.FlyEnabled and not flyLoop then
+                print("[Watchdog] Reiniciando Fly...")
+                StartFly()
+            end
+            if Config.Speed.WalkEnabled and not walkLoop then
+                print("[Watchdog] Reiniciando WalkSpeed...")
+                SetWalkEnabled(true)
+            end
+        end)
+    end
+end)
